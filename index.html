@@ -1,0 +1,2163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>THE CUL-DE-SAC SCRAP NINJAS: WORLD TOUR & ALIEN BREAKOUT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #050505;
+            --neon-blue: #00f0ff;
+            --neon-pink: #ff0055;
+            --neon-yellow: #ffe600;
+            --neon-green: #00ff88;
+        }
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Chakra Petch', sans-serif;
+            color: #ffffff;
+        }
+        #game-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 1;
+        }
+        /* 1970s Pulp Comic Halftone & Creased Paper Texture Overlay */
+        .pulp-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+            background-image: 
+                radial-gradient(rgba(0, 240, 255, 0.06) 1px, transparent 0),
+                radial-gradient(rgba(255, 0, 85, 0.05) 1px, transparent 0);
+            background-size: 16px 16px;
+            background-position: 0 0, 8px 8px;
+            box-shadow: inset 0 0 85px rgba(5, 5, 5, 0.85);
+        }
+        /* Tactical Thermal Scope Overlay when ADS / Thermal Mod Equipped */
+        .thermal-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 3;
+            background: radial-gradient(circle at center, rgba(0, 255, 136, 0.08) 0%, rgba(0, 240, 255, 0.18) 65%, rgba(5, 5, 5, 0.85) 100%);
+            border: 3px solid rgba(0, 240, 255, 0.5);
+        }
+        .comic-font {
+            font-family: 'Bangers', cursive;
+            letter-spacing: 0.06em;
+        }
+        .dev-panel {
+            background: rgba(5, 5, 5, 0.90);
+            border: 2px solid #00f0ff;
+            box-shadow: 0 0 18px rgba(0, 240, 255, 0.25), 3px 3px 0px #ff0055;
+            backdrop-filter: blur(8px);
+        }
+        .comic-btn {
+            font-family: 'Bangers', cursive;
+            letter-spacing: 0.07em;
+            transition: all 0.12s cubic-bezier(0.25, 1, 0.5, 1);
+            box-shadow: 3px 3px 0px #000000, 0 0 10px rgba(0, 240, 255, 0.35);
+        }
+        .comic-btn:hover:not(:disabled) {
+            transform: translate(-2px, -2px);
+            box-shadow: 5px 5px 0px #ff0055, 0 0 18px rgba(0, 240, 255, 0.75);
+        }
+        .comic-btn:active:not(:disabled) {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0px #000000;
+        }
+        /* Crosshair */
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 12;
+            width: 34px;
+            height: 34px;
+            border: 2px solid rgba(0, 240, 255, 0.85);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 0, 85, 0.7);
+            transition: transform 0.06s ease;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: #ffe600;
+        }
+        #crosshair::before { top: 50%; left: -6px; right: -6px; height: 2px; transform: translateY(-50%); }
+        #crosshair::after { left: 50%; top: -6px; bottom: -6px; width: 2px; transform: translateX(-50%); }
+        /* Floating 3D-to-2D Comic Action Popups */
+        #comic-popups {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 15;
+            overflow: hidden;
+        }
+        .comic-bubble {
+            position: absolute;
+            font-family: 'Bangers', cursive;
+            font-size: 1.9rem;
+            padding: 3px 12px;
+            border: 3px solid #050505;
+            border-radius: 12px;
+            text-shadow: 2px 2px 0 #050505, -1px -1px 0 #050505;
+            box-shadow: 4px 4px 0 #050505;
+            transform: translate(-50%, -50%) scale(0.4) rotate(-8deg);
+            animation: popAction 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            white-space: nowrap;
+        }
+        @keyframes popAction {
+            0% { transform: translate(-50%, -50%) scale(0.3) rotate(-12deg); opacity: 1; }
+            35% { transform: translate(-50%, -85%) scale(1.22) rotate(6deg); opacity: 1; }
+            80% { transform: translate(-50%, -120%) scale(1.0) rotate(-3deg); opacity: 0.95; }
+            100% { transform: translate(-50%, -150%) scale(0.7) rotate(0deg); opacity: 0; }
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #050505; }
+        ::-webkit-scrollbar-thumb { background: #00f0ff; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <!-- 3D WebGL Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- 1970s Pulp Comic Halftone Overlay & Optional Thermal Scope -->
+    <div class="pulp-overlay"></div>
+    <div id="thermal-overlay" class="thermal-overlay hidden"></div>
+
+    <!-- Realistic Dynamic Recoil Crosshair -->
+    <div id="crosshair"></div>
+
+    <!-- Floating Comic Bubbles Container -->
+    <div id="comic-popups"></div>
+
+    <!-- ======================================================================= -->
+    <!-- MAIN IN-GAME HUD LAYER                                                  -->
+    <!-- ======================================================================= -->
+    <div id="hud-layer" class="fixed inset-0 pointer-events-none z-10 flex flex-col justify-between p-2 sm:p-3 hidden">
+        
+        <!-- TOP ROW: Active Squad Roster, Mission / Boss / Wave Tracker, Collectibles & Quick Modals -->
+        <div class="flex flex-wrap items-start justify-between gap-2 w-full">
+            
+            <!-- Left: Active Hero, 8-Hero Squad Tag-Team Bar & Pitbull Sidekick -->
+            <div class="dev-panel rounded-xl p-2 sm:p-2.5 pointer-events-auto flex flex-col gap-1.5 max-w-sm">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-10 h-10 rounded-lg bg-[#0c1824] border-2 border-[#ffe600] flex flex-col items-center justify-center shrink-0">
+                            <span id="hud-hero-icon" class="text-lg">🛹</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span id="hud-hero-name" class="comic-font text-xl text-[#00f0ff] leading-none">JAX</span>
+                                <span id="hud-city-badge" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#ff0055] text-white">OSCEOLA, AR</span>
+                            </div>
+                            <div id="hud-armor-label" class="text-[10px] text-[#ffe600] font-bold">Armor: Tier 0 Streetwear</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-1">
+                        <button id="btn-tag-hero" class="comic-btn bg-[#ffe600] text-black px-2 py-1 rounded text-xs font-bold border border-white" title="Instant Tag-Team Swap [T]">
+                            ⚡ TAG IN [T]
+                        </button>
+                        <button id="btn-open-customizer" class="comic-btn bg-[#111] text-[#00f0ff] border border-[#00f0ff] px-2 py-1 rounded text-xs">
+                            SQUAD LAB
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 8-Hero Roster Bar (3 Customized Teens + 5 Secret Legends) -->
+                <div id="hud-roster-strip" class="grid grid-cols-8 gap-1 pt-1 border-t border-white/10">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- Tank the Pitbull + Squad Combo Meter -->
+                <div class="flex items-center justify-between text-[10px] pt-0.5">
+                    <span id="hud-dog-status" class="text-[#00ff88] font-bold truncate">🐾 TANK: Cyber-Turret & Loot Sniffer ON</span>
+                    <button id="btn-super-combo" class="comic-btn bg-gradient-to-r from-[#ff0055] to-[#ffe600] text-black font-bold px-2 py-0.5 rounded text-[10px]">
+                        💥 WORLD TOUR SUPER [Q]: <span id="hud-super-pct">100%</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Center: Active City / Boss Arena / 100-Wave Raid Tracker -->
+            <div class="dev-panel rounded-xl p-2 sm:p-2.5 pointer-events-auto flex-1 max-w-lg mx-auto">
+                <div class="flex items-center justify-between border-b border-[#00f0ff]/30 pb-1 mb-1">
+                    <div class="flex items-center gap-1.5">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-[#ff0055] animate-ping"></span>
+                        <span id="mission-title" class="comic-font text-base sm:text-lg text-[#ffe600] tracking-wide">
+                            WORLD TOUR: EXPLORE, DISMANTLE & UNLOCK LEGENDS!
+                        </span>
+                    </div>
+                    <span id="prestige-badge" class="text-[10px] font-bold bg-[#ff0055] text-white px-2 py-0.5 rounded">
+                        PRESTIGE TIER 1
+                    </span>
+                </div>
+                <p id="mission-desc" class="text-[11px] sm:text-xs text-gray-200 font-semibold leading-snug">
+                    Dismantle props, blast Sleepwalkers with realistic guns, collect records/Grammys/notes/champagne/UFO parts, or launch a 1-on-1 Superstar Boss Duel!
+                </p>
+
+                <!-- Active Boss or Wave Health Bar -->
+                <div class="w-full h-3 bg-black rounded-full border border-[#00f0ff]/70 mt-1.5 overflow-hidden relative">
+                    <div id="mission-progress-bar" class="h-full bg-gradient-to-r from-[#ff0055] via-[#ffe600] to-[#00ff88] transition-all duration-200" style="width: 100%"></div>
+                </div>
+                <div class="flex flex-wrap items-center justify-between text-[10px] mt-1 gap-1 font-bold">
+                    <span id="mission-subgoal-text" class="text-[#00f0ff]">Target Integrity: 100%</span>
+                    <div class="flex gap-1">
+                        <button id="btn-siege-mode" class="px-1.5 py-0.5 rounded bg-[#ff0055] text-white hover:bg-white hover:text-black transition">
+                            🤖 VS BARON TV-TITAN
+                        </button>
+                        <button id="btn-raid-mode" class="px-1.5 py-0.5 rounded bg-[#ffe600] text-black hover:bg-white transition">
+                            🌀 100-WAVE RAID
+                        </button>
+                        <button id="btn-respawn-device" class="px-1.5 py-0.5 rounded bg-purple-600 text-white hover:bg-purple-400 transition" title="Osceola Blood-Moon Respawn Device [B]">
+                            🩸 BLOOD-MOON [B]
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Scrap, XP, 5 Legend Collectibles & Navigation Modals -->
+            <div class="dev-panel rounded-xl p-2 sm:p-2.5 pointer-events-auto flex flex-col gap-1 min-w-[255px]">
+                <div class="grid grid-cols-4 gap-1 text-center text-[10px]">
+                    <div class="bg-[#0b131e] border border-[#00f0ff]/40 rounded p-1">
+                        <div class="text-gray-400">SCRAP</div>
+                        <div id="res-scrap" class="comic-font text-base text-[#00f0ff]">250</div>
+                    </div>
+                    <div class="bg-[#0b131e] border border-[#ffe600]/40 rounded p-1">
+                        <div class="text-gray-400">GOLD</div>
+                        <div id="res-gold" class="comic-font text-base text-[#ffe600]">100</div>
+                    </div>
+                    <div class="bg-[#0b131e] border border-[#00ff88]/40 rounded p-1">
+                        <div class="text-gray-400">SKILL XP</div>
+                        <div id="res-xp" class="comic-font text-base text-[#00ff88]">0</div>
+                    </div>
+                    <div class="bg-[#0b131e] border border-[#ff0055]/40 rounded p-1">
+                        <div class="text-gray-400">WOKEN</div>
+                        <div id="res-kills" class="comic-font text-base text-[#ff0055]">0</div>
+                    </div>
+                </div>
+
+                <!-- 5 Secret Legend Collectibles Bar -->
+                <div class="grid grid-cols-5 gap-1 text-center text-[9px] bg-black/70 p-1 rounded border border-white/10">
+                    <div title="Disco Records (Elvis)">💿 <span id="col-elvis" class="text-[#ffe600] font-bold">0/30</span></div>
+                    <div title="Grammy Awards (Michael Jackson)">🏆 <span id="col-mj" class="text-[#ffe600] font-bold">0/50</span></div>
+                    <div title="Pink Music Notes (Miley Cyrus)">🎵 <span id="col-miley" class="text-[#ff0055] font-bold">0/30</span></div>
+                    <div title="Pink Champagne (Britney Spears)">🍾 <span id="col-britney" class="text-[#ff0055] font-bold">0/50</span></div>
+                    <div title="UFO Engine Parts (Secret Alien)">🛸 <span id="col-alien" class="text-[#00ff88] font-bold">0/20</span></div>
+                </div>
+
+                <!-- Fast Action Buttons: Teleporter, Gun Bench, Boss Duels, Car Transform -->
+                <div class="grid grid-cols-2 gap-1 mt-0.5">
+                    <button id="btn-open-teleport" class="comic-btn bg-[#00f0ff] text-black py-1 px-2 rounded text-xs font-bold">
+                        🌎 5-CITY TELEPORT [M]
+                    </button>
+                    <button id="btn-open-gunbench" class="comic-btn bg-[#ff0055] text-white py-1 px-2 rounded text-xs font-bold">
+                        🔫 GUN BENCH & SKILLS [U]
+                    </button>
+                    <button id="btn-open-bosses" class="comic-btn bg-[#ffe600] text-black py-1 px-2 rounded text-xs font-bold">
+                        🎸 1v1 LEGEND DUELS [L]
+                    </button>
+                    <button id="btn-car-mode" class="comic-btn bg-[#00ff88] text-black py-1 px-2 rounded text-xs font-bold">
+                        🏎️ DRIVE / TRANSFORM [V/C]
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- CENTER POPUP BANNER FOR BOSS CONQUESTS & UNLOCKS -->
+        <div id="unlock-banner" class="hidden self-center dev-panel rounded-2xl px-6 py-3 text-center max-w-xl border-2 border-[#ffe600] pointer-events-auto">
+            <div id="unlock-banner-title" class="comic-font text-2xl sm:text-4xl text-[#ffe600] drop-shadow">LEGEND UNLOCKED!</div>
+            <p id="unlock-banner-desc" class="text-xs sm:text-sm text-white mt-0.5 font-bold"></p>
+        </div>
+
+        <!-- BOTTOM ROW: 9-Slot Realistic & Comic Weapon Wheel + Touch/Action Controls -->
+        <div class="flex flex-col gap-1.5 w-full">
+            
+            <!-- 9-Weapon Wheel Strip (Unlimited Reserve Ammo + Live Magazine Counter) -->
+            <div class="dev-panel rounded-xl p-1.5 pointer-events-auto flex flex-wrap items-center justify-between gap-1.5 w-full max-w-5xl mx-auto">
+                <div id="weapon-wheel-strip" class="grid grid-cols-3 sm:grid-cols-9 gap-1 flex-1">
+                    <!-- Dynamically populated 9 weapons -->
+                </div>
+                <div class="flex items-center gap-2 px-2 py-1 bg-black/80 rounded-lg border border-[#00f0ff]/50 shrink-0">
+                    <div class="text-right">
+                        <div id="hud-weapon-name" class="comic-font text-sm sm:text-base text-[#ffe600] leading-none">TAC ASSAULT RIFLE</div>
+                        <div class="text-[10px] text-[#00ff88] font-bold">UNLIMITED RESERVE • [R] RELOAD</div>
+                    </div>
+                    <div id="hud-ammo-count" class="comic-font text-2xl sm:text-3xl text-white bg-[#ff0055] px-2.5 py-0.5 rounded border border-white">
+                        45/∞
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls & Raid Turret Builder Bar -->
+            <div class="flex flex-wrap items-end justify-between gap-2 w-full">
+                <!-- Left: Touch WASD + Base Turret Builder -->
+                <div class="dev-panel rounded-xl p-1.5 pointer-events-auto flex items-center gap-2">
+                    <div class="grid grid-cols-3 gap-1">
+                        <div></div>
+                        <button data-key="KeyW" class="touch-btn w-8 h-8 rounded bg-[#111b24] active:bg-[#00f0ff] active:text-black border border-[#00f0ff] font-bold text-xs">▲</button>
+                        <div></div>
+                        <button data-key="KeyA" class="touch-btn w-8 h-8 rounded bg-[#111b24] active:bg-[#00f0ff] active:text-black border border-[#00f0ff] font-bold text-xs">◀</button>
+                        <button data-key="KeyS" class="touch-btn w-8 h-8 rounded bg-[#111b24] active:bg-[#00f0ff] active:text-black border border-[#00f0ff] font-bold text-xs">▼</button>
+                        <button data-key="KeyD" class="touch-btn w-8 h-8 rounded bg-[#111b24] active:bg-[#00f0ff] active:text-black border border-[#00f0ff] font-bold text-xs">▶</button>
+                    </div>
+                    <div class="flex flex-col gap-1 border-l border-white/15 pl-2">
+                        <span class="text-[9px] text-[#ffe600] font-bold uppercase">Build Raid Defenses [N] (25 Gold):</span>
+                        <div class="flex gap-1">
+                            <button data-turret="bass" class="build-turret-btn comic-btn bg-[#0d1b2a] text-[#00f0ff] border border-[#00f0ff] px-2 py-1 rounded text-[10px]">🔊 BASS CANNON</button>
+                            <button data-turret="tennis" class="build-turret-btn comic-btn bg-[#0d1b2a] text-[#00ff88] border border-[#00ff88] px-2 py-1 rounded text-[10px]">🎾 TENNIS TURRET</button>
+                            <button data-turret="laser" class="build-turret-btn comic-btn bg-[#0d1b2a] text-[#ff0055] border border-[#ff0055] px-2 py-1 rounded text-[10px]">⚡ LASER GATE</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Primary Combat & Mobility Buttons -->
+                <div class="dev-panel rounded-xl p-1.5 pointer-events-auto flex items-center gap-1.5">
+                    <button id="btn-action-fire" class="comic-btn bg-[#ff0055] text-white border border-white rounded-lg px-3 py-1.5 text-sm sm:text-base">
+                        🔥 FIRE / SMASH [CLICK/F]
+                    </button>
+                    <button id="btn-action-reload" class="comic-btn bg-[#0d1b2a] text-[#00f0ff] border border-[#00f0ff] rounded-lg px-2.5 py-1.5 text-xs sm:text-sm">
+                        🔄 RELOAD [R]
+                    </button>
+                    <button id="btn-action-jump" class="comic-btn bg-[#00f0ff] text-black border border-white rounded-lg px-2.5 py-1.5 text-xs sm:text-sm">
+                        🚀 JETPACK [SPACE]
+                    </button>
+                    <button id="btn-action-sprint" class="comic-btn bg-[#ffe600] text-black border border-white rounded-lg px-2.5 py-1.5 text-xs sm:text-sm">
+                        🛼 SKATE [SHIFT]
+                    </button>
+                    <button id="btn-action-bark" class="comic-btn bg-[#00ff88] text-black border border-white rounded-lg px-2.5 py-1.5 text-xs sm:text-sm">
+                        🐶 BARK [G]
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL 1: FULL 3-HERO SQUAD CUSTOMIZER & LAUNCHER                        -->
+    <!-- ======================================================================= -->
+    <div id="customizer-modal" class="fixed inset-0 z-30 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+        <div class="dev-panel rounded-2xl w-full max-w-5xl p-4 sm:p-5 my-auto border-2 border-[#00f0ff]">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-[#00f0ff]/40 pb-2.5 mb-3">
+                <div>
+                    <div class="inline-block bg-[#ff0055] text-white text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-widest">
+                        Full 3-Hero Squad Customizer • 5 Cities • 5 Secret Legends • Realistic Ballistics
+                    </div>
+                    <h1 class="comic-font text-2xl sm:text-4xl text-[#00f0ff] tracking-wide">
+                        THE CUL-DE-SAC SCRAP NINJAS: WORLD TOUR & ALIEN BREAKOUT
+                    </h1>
+                </div>
+                <div class="text-right text-xs">
+                    <span class="text-[#ffe600] font-bold block">CUSTOMIZE ALL 3 SQUAD HEROES (S1)</span>
+                    <span class="text-gray-400">Tag-Team Anytime [T] • Roof & Window Car Gunners (C1)</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <!-- Left 7 Cols: Customize All 3 Squad Members -->
+                <div class="lg:col-span-7 space-y-3">
+                    <div class="text-xs font-bold text-[#00f0ff] uppercase">
+                        1. Select Squad Member to Customize (All 3 Fight Together in Your Crew!):
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" data-slot="0" class="squad-slot-btn dev-panel rounded-xl p-2 text-left border-2 border-[#ffe600] bg-[#00f0ff]/20">
+                            <div class="comic-font text-lg text-[#ffe600]">HERO #1 (WHITE TEEN)</div>
+                            <div id="slot0-name-preview" class="text-xs font-bold text-white">JAX</div>
+                            <div class="text-[10px] text-gray-300">Lead Cul-de-Sac Striker</div>
+                        </button>
+                        <button type="button" data-slot="1" class="squad-slot-btn dev-panel rounded-xl p-2 text-left border-2 border-transparent">
+                            <div class="comic-font text-lg text-[#00f0ff]">HERO #2 (BLACK TEEN)</div>
+                            <div id="slot1-name-preview" class="text-xs font-bold text-white">MARCUS</div>
+                            <div class="text-[10px] text-gray-300">Roof Turret & Tech Specialist</div>
+                        </button>
+                        <button type="button" data-slot="2" class="squad-slot-btn dev-panel rounded-xl p-2 text-left border-2 border-transparent">
+                            <div class="comic-font text-lg text-[#00ff88]">HERO #3 (MEXICAN TEEN)</div>
+                            <div id="slot2-name-preview" class="text-xs font-bold text-white">MATEO</div>
+                            <div class="text-[10px] text-gray-300">V8 Mechanic & Heavy Gunner</div>
+                        </button>
+                    </div>
+
+                    <!-- Name & Gender for Selected Squad Slot -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#080f18] p-3 rounded-xl border border-[#00f0ff]/40">
+                        <div>
+                            <label class="block text-[11px] font-bold uppercase text-[#ffe600] mb-1">Hero Name:</label>
+                            <input id="input-hero-name" type="text" value="JAX" maxlength="14"
+                                class="w-full bg-black border-2 border-[#00f0ff] rounded-lg px-2.5 py-1.5 text-white font-bold text-sm focus:outline-none focus:border-[#ffe600]" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold uppercase text-[#ffe600] mb-1">Gender Style:</label>
+                            <div class="grid grid-cols-3 gap-1">
+                                <button type="button" data-gender="boy" class="gender-btn py-1.5 rounded font-bold text-xs border-2 border-[#ffe600] bg-[#00f0ff] text-black">BOY</button>
+                                <button type="button" data-gender="girl" class="gender-btn py-1.5 rounded font-bold text-xs border border-[#00f0ff]/40 bg-black text-white">GIRL</button>
+                                <button type="button" data-gender="nb" class="gender-btn py-1.5 rounded font-bold text-xs border border-[#00f0ff]/40 bg-black text-white">NB</button>
+                            </div>
+                        </div>
+
+                        <!-- Hair & Eye Swatches -->
+                        <div>
+                            <label class="block text-[11px] font-bold uppercase text-[#00f0ff] mb-1">Hair Color:</label>
+                            <div class="flex items-center gap-1.5" id="hair-color-swatches">
+                                <button type="button" data-hair="#1a1a1a" class="w-6 h-6 rounded-full bg-[#1a1a1a] border border-white ring-2 ring-[#ffe600]"></button>
+                                <button type="button" data-hair="#5c3317" class="w-6 h-6 rounded-full bg-[#5c3317] border border-white"></button>
+                                <button type="button" data-hair="#e6b800" class="w-6 h-6 rounded-full bg-[#e6b800] border border-white"></button>
+                                <button type="button" data-hair="#ff0055" class="w-6 h-6 rounded-full bg-[#ff0055] border border-white"></button>
+                                <button type="button" data-hair="#00f0ff" class="w-6 h-6 rounded-full bg-[#00f0ff] border border-white"></button>
+                                <button type="button" data-hair="#00ff88" class="w-6 h-6 rounded-full bg-[#00ff88] border border-white"></button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold uppercase text-[#00f0ff] mb-1">Eye Color:</label>
+                            <div class="flex items-center gap-1.5" id="eye-color-swatches">
+                                <button type="button" data-eye="#00f0ff" class="w-6 h-6 rounded-full bg-[#00f0ff] border border-white ring-2 ring-[#ffe600]"></button>
+                                <button type="button" data-eye="#4b2e1e" class="w-6 h-6 rounded-full bg-[#4b2e1e] border border-white"></button>
+                                <button type="button" data-eye="#00ff88" class="w-6 h-6 rounded-full bg-[#00ff88] border border-white"></button>
+                                <button type="button" data-eye="#ffe600" class="w-6 h-6 rounded-full bg-[#ffe600] border border-white"></button>
+                                <button type="button" data-eye="#ff0055" class="w-6 h-6 rounded-full bg-[#ff0055] border border-white"></button>
+                            </div>
+                        </div>
+
+                        <!-- Voice Pitch -->
+                        <div class="sm:col-span-2">
+                            <label class="block text-[11px] font-bold uppercase text-[#00f0ff] mb-1">Battle-Cry Voice Pitch:</label>
+                            <div class="grid grid-cols-4 gap-1.5">
+                                <button type="button" data-voice="0" class="voice-btn py-1 rounded text-xs font-bold border-2 border-[#ffe600] bg-[#00f0ff] text-black">🎙️ REBEL SPARK</button>
+                                <button type="button" data-voice="1" class="voice-btn py-1 rounded text-xs font-bold border border-[#00f0ff]/40 bg-black text-white">⚡ HYPE SPEED</button>
+                                <button type="button" data-voice="2" class="voice-btn py-1 rounded text-xs font-bold border border-[#00f0ff]/40 bg-black text-white">🔥 DEEP CRUSHER</button>
+                                <button type="button" id="btn-test-voice" class="comic-btn py-1 rounded text-xs bg-[#ff0055] text-white">🔊 TEST CRY</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right 5 Cols: World Tour Summary & Launch -->
+                <div class="lg:col-span-5 flex flex-col justify-between bg-[#080d14] border-2 border-[#00f0ff]/50 rounded-xl p-3.5">
+                    <div class="space-y-2 text-xs">
+                        <div class="comic-font text-xl text-[#ffe600]">WORLD TOUR & LEGEND UNLOCKS</div>
+                        <div class="p-2 rounded bg-black/70 border border-[#00f0ff]/40">
+                            <b class="text-[#00f0ff]">• 5 Playable Worlds [M]:</b> Osceola Treehouse, Memphis Riverboat & Pyramid, Motor-Music City Skyscraper Derby, Caribbean Pirate Monster-Truck Island, & Area 51 Moon Bunker!
+                        </div>
+                        <div class="p-2 rounded bg-black/70 border border-[#ff0055]/40">
+                            <b class="text-[#ff0055]">• 5 Secret Playable Legends [L]:</b> Collect Disco Records, Grammys, Pink Music Notes, Pink Champagne, & UFO Parts to duel & unlock <b>Zombie Elvis, Michael Jackson, Miley Cyrus, Britney Spears, & The Alien!</b>
+                        </div>
+                        <div class="p-2 rounded bg-black/70 border border-[#00ff88]/40">
+                            <b class="text-[#00ff88]">• 4-in-1 Transformer Car [V/C]:</b> Street Muscle Car, River Hovercraft, 6-Foot Mud-Tire Monster-Truck, & Supersonic Flying UFO Jet!
+                        </div>
+                    </div>
+
+                    <button id="btn-launch-game" class="comic-btn w-full mt-3 py-3 rounded-xl bg-gradient-to-r from-[#00f0ff] via-[#00ff88] to-[#ffe600] text-black text-2xl tracking-wider border-2 border-white">
+                        🚀 LAUNCH FULL SQUAD INTO ACTION!
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL 2: 5-CITY SUPER-FORTRESS TELEPORTER & ENDGAME SIEGE SELECTOR [M]  -->
+    <!-- ======================================================================= -->
+    <div id="teleport-modal" class="fixed inset-0 z-30 hidden items-center justify-center p-3 bg-black/85 backdrop-blur-sm overflow-y-auto">
+        <div class="dev-panel rounded-2xl max-w-4xl w-full p-5 border-2 border-[#00f0ff] my-auto">
+            <div class="flex items-center justify-between border-b border-[#00f0ff]/40 pb-2 mb-3">
+                <div>
+                    <h2 class="comic-font text-3xl text-[#00f0ff]">🌀 SUPER-FORTRESS INSTANT TELEPORT NETWORK</h2>
+                    <p class="text-xs text-gray-300">Fastest instant warp for long distances + Highway/River/Tunnel runs! Choose a city or launch the 3-Hero Endgame Siege!</p>
+                </div>
+                <button id="btn-close-teleport" class="comic-btn bg-[#ff0055] text-white px-3 py-1 rounded-lg text-sm">✖ CLOSE</button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-left">
+                <button data-city="0" class="city-tp-btn dev-panel rounded-xl p-3 hover:border-[#ffe600] transition">
+                    <div class="comic-font text-xl text-[#00f0ff]">1. OSCEOLA, ARKANSAS</div>
+                    <div class="text-xs text-gray-300 mt-0.5">Treehouse Hub, Junkyard, Neon Arcade & Blood-Moon Respawn Device [B].</div>
+                    <div class="text-[10px] text-[#ff0055] font-bold mt-1">🍾 Boss: Zombie Britney Spears Vault</div>
+                </button>
+                <button data-city="1" class="city-tp-btn dev-panel rounded-xl p-3 hover:border-[#ffe600] transition">
+                    <div class="comic-font text-xl text-[#ffe600]">2. MEMPHIS, TENNESSEE</div>
+                    <div class="text-xs text-gray-300 mt-0.5">Mississippi Riverboat Base, Mecha-Catfish River Barge & Bass-Pyramid.</div>
+                    <div class="text-[10px] text-[#ffe600] font-bold mt-1">💿 Boss: Zombie Elvis Presley Arena</div>
+                </button>
+                <button data-city="2" class="city-tp-btn dev-panel rounded-xl p-3 hover:border-[#ffe600] transition">
+                    <div class="comic-font text-xl text-[#00ff88]">3. MOTOR-MUSIC CITY</div>
+                    <div class="text-xs text-gray-300 mt-0.5">Nashville/Detroit Hybrid! Music-Row Pirate Armada & V8 Vinyl Skyscraper Derby.</div>
+                    <div class="text-[10px] text-[#00ff88] font-bold mt-1">🏆 Boss: Zombie Michael Jackson Stage</div>
+                </button>
+                <button data-city="3" class="city-tp-btn dev-panel rounded-xl p-3 hover:border-[#ffe600] transition">
+                    <div class="comic-font text-xl text-[#ff0055]">4. CARIBBEAN MONSTER ISLAND</div>
+                    <div class="text-xs text-gray-300 mt-0.5">Pirate Stone Fortress, Volcano Mud-Bogs & 6-Foot Monster-Truck Ramps!</div>
+                    <div class="text-[10px] text-[#ff0055] font-bold mt-1">🎵 Boss: Zombie Miley Wrecking-Ball</div>
+                </button>
+                <button data-city="4" class="city-tp-btn dev-panel rounded-xl p-3 hover:border-[#ffe600] transition">
+                    <div class="comic-font text-xl text-purple-400">5. AREA 51 / RETRO MOON BASE</div>
+                    <div class="text-xs text-gray-300 mt-0.5">Monster-Truck Cavern Smash, Zero-G UFO Hangar & 100-Wave Portal Gauntlet!</div>
+                    <div class="text-[10px] text-purple-300 font-bold mt-1">🛸 Boss: Secret Alien Scrap-Hunter</div>
+                </button>
+                <button data-city="5" class="city-tp-btn dev-panel rounded-xl p-3 border-2 border-[#ffe600] bg-[#ffe600]/10 hover:bg-[#ffe600]/20 transition">
+                    <div class="comic-font text-xl text-[#ffe600]">6. GRAND FINALE: MEGA-SIEGE</div>
+                    <div class="text-xs text-white mt-0.5">Fuse Osceola Treehouse + Memphis Riverboat! Defeat Baron Broadcast's 100-Ft TV-Titan!</div>
+                    <div class="text-[10px] text-[#00ff88] font-bold mt-1">👑 Assign Any Hero to Missions A, B, C!</div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL 3: BLOOD-MOON GUN BENCH, ARMOR VAULT & SKILL TREE [U]             -->
+    <!-- ======================================================================= -->
+    <div id="gunbench-modal" class="fixed inset-0 z-30 hidden items-center justify-center p-3 bg-black/85 backdrop-blur-sm overflow-y-auto">
+        <div class="dev-panel rounded-2xl max-w-4xl w-full p-5 border-2 border-[#ff0055] my-auto">
+            <div class="flex items-center justify-between border-b border-[#ff0055]/40 pb-2 mb-3">
+                <div>
+                    <h2 class="comic-font text-3xl text-[#ff0055]">🔫 BLOOD-MOON TACTICAL GUN BENCH & ARMOR VAULT</h2>
+                    <p class="text-xs text-gray-300">Spend Scrap & XP to bolt realistic attachments onto all guns, upgrade Tank the Pitbull, and equip Mythic Armor Sets!</p>
+                </div>
+                <button id="btn-close-gunbench" class="comic-btn bg-[#00f0ff] text-black px-3 py-1 rounded-lg text-sm">✖ BACK TO GAME</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Left: Realistic Weapon Attachments -->
+                <div class="space-y-2">
+                    <div class="comic-font text-xl text-[#ffe600]">REALISTIC BALLISTIC ATTACHMENTS</div>
+                    <button data-mod="thermal" class="gun-mod-btn w-full dev-panel rounded-xl p-2.5 flex items-center justify-between text-left">
+                        <div>
+                            <div class="font-bold text-sm text-[#00f0ff]">🔭 Thermal Night-Vision Scope</div>
+                            <div class="text-[11px] text-gray-300">Highlights enemies & boosts long-range critical damage (+25% DMG)</div>
+                        </div>
+                        <span id="mod-status-thermal" class="comic-btn bg-[#ffe600] text-black px-2.5 py-1 rounded text-xs">50 SCRAP</span>
+                    </button>
+                    <button data-mod="drum" class="gun-mod-btn w-full dev-panel rounded-xl p-2.5 flex items-center justify-between text-left">
+                        <div>
+                            <div class="font-bold text-sm text-[#00ff88]">🥁 Twin-Drum Extended Magazines</div>
+                            <div class="text-[11px] text-gray-300">Doubles magazine capacity on all guns + instant tactical reload!</div>
+                        </div>
+                        <span id="mod-status-drum" class="comic-btn bg-[#ffe600] text-black px-2.5 py-1 rounded text-xs">60 SCRAP</span>
+                    </button>
+                    <button data-mod="incendiary" class="gun-mod-btn w-full dev-panel rounded-xl p-2.5 flex items-center justify-between text-left">
+                        <div>
+                            <div class="font-bold text-sm text-[#ff0055]">🔥 Dragon's Breath Incendiary Rounds</div>
+                            <div class="text-[11px] text-gray-300">Super-heated tracer rounds ignite bosses & shatter armor (+40% DMG)</div>
+                        </div>
+                        <span id="mod-status-incendiary" class="comic-btn bg-[#ffe600] text-black px-2.5 py-1 rounded text-xs">80 SCRAP</span>
+                    </button>
+                    <button data-mod="gold" class="gun-mod-btn w-full dev-panel rounded-xl p-2.5 flex items-center justify-between text-left">
+                        <div>
+                            <div class="font-bold text-sm text-[#ffe600]">✨ 24K Gold-Plated Receivers & Cyber-Hound</div>
+                            <div class="text-[11px] text-gray-300">Gold-plates your weapons & upgrades Tank's Auto-Turret to Plasma Balls!</div>
+                        </div>
+                        <span id="mod-status-gold" class="comic-btn bg-[#ffe600] text-black px-2.5 py-1 rounded text-xs">100 SCRAP</span>
+                    </button>
+                </div>
+
+                <!-- Right: Earned Armor Sets & Hero Skill Tree -->
+                <div class="space-y-2">
+                    <div class="comic-font text-xl text-[#00f0ff]">EARNED SQUAD ARMOR SETS & SKILL UPGRADES</div>
+                    <div class="grid grid-cols-1 gap-1.5 text-xs">
+                        <button data-armor="1" class="armor-select-btn dev-panel rounded-lg p-2 flex justify-between items-center">
+                            <span>🏈 <b>Tier 1: Backyard Sports Armor</b> (Pads, Mask, Rollerblades)</span>
+                            <span class="text-[#00ff88] font-bold">EQUIP / 30 SCRAP</span>
+                        </button>
+                        <button data-armor="2" class="armor-select-btn dev-panel rounded-lg p-2 flex justify-between items-center">
+                            <span>🥷 <b>Tier 2: Street-Ninja Tech Gear</b> (Cyber Visor & Leaf-Jetpack)</span>
+                            <span class="text-[#00f0ff] font-bold">EQUIP / 50 SCRAP</span>
+                        </button>
+                        <button data-armor="3" class="armor-select-btn dev-panel rounded-lg p-2 flex justify-between items-center">
+                            <span>⚔️ <b>Tier 3: Heavy Cyber-Samurai Armor</b> (Riverboat Titanium)</span>
+                            <span class="text-[#ff0055] font-bold">EQUIP / 80 SCRAP</span>
+                        </button>
+                        <button data-armor="4" class="armor-select-btn dev-panel rounded-lg p-2 flex justify-between items-center">
+                            <span>👑 <b>Tier 4: Golden Comic-Book Scrap Armor</b> (Supersonic Glow)</span>
+                            <span class="text-[#ffe600] font-bold">EQUIP / 120 SCRAP</span>
+                        </button>
+                        <button id="btn-upgrade-skills" class="comic-btn bg-gradient-to-r from-[#00ff88] to-[#00f0ff] text-black py-2.5 rounded-xl text-base mt-1">
+                            ⚡ LEVEL UP SQUAD SPEED & DAMAGE (COST: 40 SCRAP) — LVL <span id="skill-lvl-label">1</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================= -->
+    <!-- MODAL 4: 1-ON-1 SUPERSTAR & ALIEN BOSS DUEL ARENA LAUNCHER [L]          -->
+    <!-- ======================================================================= -->
+    <div id="boss-modal" class="fixed inset-0 z-30 hidden items-center justify-center p-3 bg-black/85 backdrop-blur-sm overflow-y-auto">
+        <div class="dev-panel rounded-2xl max-w-4xl w-full p-5 border-2 border-[#ffe600] my-auto">
+            <div class="flex items-center justify-between border-b border-[#ffe600]/40 pb-2 mb-3">
+                <div>
+                    <h2 class="comic-font text-3xl text-[#ffe600]">🎸 1-ON-1 SUPERSTAR & ALIEN BOSS ARENA DUELS</h2>
+                    <p class="text-xs text-gray-300">Collect their hidden items across the 3D world OR click "Instant Collect & Fight 1-on-1 Duel" to battle and unlock them for your Squad!</p>
+                </div>
+                <button id="btn-close-bosses" class="comic-btn bg-[#ff0055] text-white px-3 py-1 rounded-lg text-sm">✖ CLOSE</button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div class="dev-panel rounded-xl p-3 flex flex-col justify-between">
+                    <div>
+                        <div class="comic-font text-xl text-[#ffe600]">🕺 ZOMBIE ELVIS PRESLEY</div>
+                        <div class="text-[11px] text-gray-300">Guardian of Memphis • Needs <b>30 Disco Records</b></div>
+                        <div class="text-[11px] text-[#00ff88] mt-1">Reward: Playable Elvis + Dual Gold Tommy Guns!</div>
+                    </div>
+                    <button data-boss="elvis" class="start-duel-btn comic-btn w-full mt-2 py-1.5 bg-[#ffe600] text-black rounded text-sm">
+                        ⚔️ COLLECT 30 & DUEL ELVIS!
+                    </button>
+                </div>
+
+                <div class="dev-panel rounded-xl p-3 flex flex-col justify-between">
+                    <div>
+                        <div class="comic-font text-xl text-[#00f0ff]">🧤 ZOMBIE MICHAEL JACKSON</div>
+                        <div class="text-[11px] text-gray-300">Guardian of Motor-Music City • Needs <b>50 Grammys</b></div>
+                        <div class="text-[11px] text-[#00ff88] mt-1">Reward: Playable MJ + Chrome Laser-SMG & Moonwalk!</div>
+                    </div>
+                    <button data-boss="mj" class="start-duel-btn comic-btn w-full mt-2 py-1.5 bg-[#00f0ff] text-black rounded text-sm">
+                        ⚔️ COLLECT 50 & DUEL MJ!
+                    </button>
+                </div>
+
+                <div class="dev-panel rounded-xl p-3 flex flex-col justify-between">
+                    <div>
+                        <div class="comic-font text-xl text-[#ff0055]">🔨 ZOMBIE MILEY CYRUS</div>
+                        <div class="text-[11px] text-gray-300">Caribbean Pirate Fort • Needs <b>30 Pink Music Notes</b></div>
+                        <div class="text-[11px] text-[#00ff88] mt-1">Reward: Playable Miley + Pink-Gold Battle Rifle & Wrecking Ball!</div>
+                    </div>
+                    <button data-boss="miley" class="start-duel-btn comic-btn w-full mt-2 py-1.5 bg-[#ff0055] text-white rounded text-sm">
+                        ⚔️ COLLECT 30 & DUEL MILEY!
+                    </button>
+                </div>
+
+                <div class="dev-panel rounded-xl p-3 flex flex-col justify-between">
+                    <div>
+                        <div class="comic-font text-xl text-pink-400">🍾 ZOMBIE BRITNEY SPEARS</div>
+                        <div class="text-[11px] text-gray-300">Osceola Respawn Vault • Needs <b>50 Pink Champagnes</b></div>
+                        <div class="text-[11px] text-[#00ff88] mt-1">Reward: Playable Britney + Dual Chrome Tactical SMGs!</div>
+                    </div>
+                    <button data-boss="britney" class="start-duel-btn comic-btn w-full mt-2 py-1.5 bg-pink-500 text-black rounded text-sm">
+                        ⚔️ COLLECT 50 & DUEL BRITNEY!
+                    </button>
+                </div>
+
+                <div class="dev-panel rounded-xl p-3 flex flex-col justify-between">
+                    <div>
+                        <div class="comic-font text-xl text-[#00ff88]">👽 SECRET ALIEN HUNTER</div>
+                        <div class="text-[11px] text-gray-300">Area 51 / Moon Dome • Needs <b>20 UFO Engine Parts</b></div>
+                        <div class="text-[11px] text-[#00ff88] mt-1">Reward: Playable Alien + Zero-G Plasma Gatling Gun!</div>
+                    </div>
+                    <button data-boss="alien" class="start-duel-btn comic-btn w-full mt-2 py-1.5 bg-[#00ff88] text-black rounded text-sm">
+                        ⚔️ COLLECT 20 & DUEL ALIEN!
+                    </button>
+                </div>
+
+                <div class="dev-panel rounded-xl p-3 flex flex-col justify-between border-2 border-[#ffe600]">
+                    <div>
+                        <div class="comic-font text-xl text-[#ffe600]">📺 BARON BROADCAST (FINAL BOSS)</div>
+                        <div class="text-[11px] text-gray-300">100-Foot TV-Titan Mecha on the Mississippi River!</div>
+                        <div class="text-[11px] text-[#00f0ff] mt-1">Choose Hero Mission: Tower Defense, Split-Squad, or Super-Fortress!</div>
+                    </div>
+                    <button data-boss="baron" class="start-duel-btn comic-btn w-full mt-2 py-1.5 bg-gradient-to-r from-[#ff0055] to-[#ffe600] text-black rounded text-sm">
+                        👑 LAUNCH FINAL MECHA SIEGE!
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function() {
+        // =========================================================================
+        // 1. REALISTIC GUNSHOT, BASS & VOICE SYNTHESIZER (Web Audio API)
+        // =========================================================================
+        const SoundFX = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+            },
+            playTone(freq, type, duration, vol = 0.14, slideFreq = null) {
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    if (slideFreq) osc.frequency.exponentialRampToValueAtTime(slideFreq, this.ctx.currentTime + duration);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {}
+            },
+            playNoise(duration = 0.12, vol = 0.25, filterFreq = 1400) {
+                try {
+                    this.init();
+                    if (!this.ctx) return;
+                    const bufferSize = this.ctx.sampleRate * duration;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+                    }
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.value = filterFreq;
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    noise.start();
+                } catch (e) {}
+            },
+            gunshot(pitch = 150, heavy = false) {
+                // Realistic layered ballistic crack + low punch
+                this.playNoise(heavy ? 0.22 : 0.11, heavy ? 0.32 : 0.22, heavy ? 900 : 2200);
+                this.playTone(pitch, 'sawtooth', heavy ? 0.16 : 0.09, 0.2, 38);
+            },
+            reload() {
+                this.playTone(420, 'square', 0.06, 0.12, 620);
+                setTimeout(() => this.playTone(780, 'triangle', 0.08, 0.14, 980), 120);
+            },
+            smash() {
+                this.playNoise(0.18, 0.24, 800);
+                this.playTone(140, 'sawtooth', 0.18, 0.2, 42);
+            },
+            collect() {
+                this.playTone(580, 'triangle', 0.11, 0.15, 980);
+            },
+            bark() {
+                this.playTone(230, 'sawtooth', 0.12, 0.25, 105);
+                setTimeout(() => this.playTone(250, 'sawtooth', 0.15, 0.25, 90), 100);
+            },
+            fanfare() {
+                [440, 554, 659, 880].forEach((n, i) => setTimeout(() => this.playTone(n, 'square', 0.2, 0.16), i * 100));
+            },
+            speakHeroLine(text, voiceStyleIndex = 0, gender = 'boy') {
+                this.init();
+                const basePitch = gender === 'girl' ? 330 : (gender === 'nb' ? 260 : 200);
+                this.playTone(basePitch, 'triangle', 0.12, 0.12, basePitch * 1.3);
+                if ('speechSynthesis' in window) {
+                    try {
+                        window.speechSynthesis.cancel();
+                        const utter = new SpeechSynthesisUtterance(text);
+                        utter.pitch = [1.05, 1.35, 0.75][voiceStyleIndex] || 1.0;
+                        if (gender === 'girl') utter.pitch += 0.25;
+                        utter.rate = 1.1;
+                        utter.volume = 0.85;
+                        window.speechSynthesis.speak(utter);
+                    } catch (e) {}
+                }
+            }
+        };
+
+        // =========================================================================
+        // 2. COMPLETE 8-HERO ROSTER, 9 WEAPONS & 5 CITIES STATE
+        // =========================================================================
+        const HERO_ROSTER = [
+            // 0, 1, 2: The 3 Customizable Teen Heroes (White, Black, Mexican)
+            { id: 0, name: 'JAX', role: 'White Teen', icon: '🛹', unlocked: true, gender: 'boy', skin: '#ffdfc4', hair: '#1a1a1a', eye: '#00f0ff', shirt: '#ff0055', voice: 0 },
+            { id: 1, name: 'MARCUS', role: 'Black Teen', icon: '⚡', unlocked: true, gender: 'boy', skin: '#6f4228', hair: '#1a1a1a', eye: '#ffe600', shirt: '#00f0ff', voice: 2 },
+            { id: 2, name: 'MATEO', role: 'Mexican Teen', icon: '🔧', unlocked: true, gender: 'boy', skin: '#d99b66', hair: '#1a1a1a', eye: '#00ff88', shirt: '#ffe600', voice: 1 },
+            // 3, 4, 5, 6, 7: The 5 Unlockable Secret Legends!
+            { id: 3, name: 'ZOMBIE ELVIS', role: 'King of Rock', icon: '🕺', unlocked: false, gender: 'boy', skin: '#84cc16', hair: '#111111', eye: '#ffe600', shirt: '#ffffff', voice: 2, sigWeapon: 7 },
+            { id: 4, name: 'ZOMBIE MJ', role: 'King of Pop', icon: '🧤', unlocked: false, gender: 'boy', skin: '#65a30d', hair: '#111111', eye: '#00f0ff', shirt: '#dc2626', voice: 1, sigWeapon: 7 },
+            { id: 5, name: 'ZOMBIE MILEY', role: 'Wrecking Queen', icon: '🔨', unlocked: false, gender: 'girl', skin: '#a3e635', hair: '#facc15', eye: '#ff0055', shirt: '#ec4899', voice: 0, sigWeapon: 5 },
+            { id: 6, name: 'ZOMBIE BRITNEY', role: 'Pop Princess', icon: '🍾', unlocked: false, gender: 'girl', skin: '#86efac', hair: '#fde047', eye: '#00f0ff', shirt: '#f472b6', voice: 1, sigWeapon: 6 },
+            { id: 7, name: 'ALIEN HUNTER', role: 'Area 51 Cosmic', icon: '👽', unlocked: false, gender: 'nb', skin: '#00ff88', hair: '#00f0ff', eye: '#111111', shirt: '#9333ea', voice: 1, sigWeapon: 8 }
+        ];
+
+        const WEAPONS = [
+            { id: 0, key: '1', name: 'SCRAP WRENCH', icon: '🔧', dmg: 38, rate: 0.28, mag: 999, range: 7.5, color: 0xff0055, melee: true, unlocked: true },
+            { id: 1, key: '2', name: 'SONIC SHOTGUN', icon: '🔊', dmg: 55, rate: 0.45, mag: 12, range: 38, color: 0x00f0ff, pellets: 6, unlocked: true },
+            { id: 2, key: '3', name: 'GUITAR AXE', icon: '🎸', dmg: 45, rate: 0.22, mag: 40, range: 32, color: 0xffe600, lightning: true, unlocked: true },
+            { id: 3, key: '4', name: 'BASS HAMMER', icon: '🔨', dmg: 85, rate: 0.55, mag: 999, range: 11, color: 0x00ff88, quake: true, unlocked: true },
+            { id: 4, key: '5', name: 'TAC ASSAULT RIFLE', icon: '🔫', dmg: 28, rate: 0.10, mag: 45, range: 65, color: 0xffe600, realistic: true, unlocked: true },
+            { id: 5, key: '6', name: 'MILEY PINK RIFLE', icon: '💖', dmg: 62, rate: 0.14, mag: 40, range: 70, color: 0xff0055, realistic: true, unlocked: true },
+            { id: 6, key: '7', name: 'BRITNEY DUAL SMGs', icon: '🥂', dmg: 34, rate: 0.06, mag: 80, range: 55, color: 0x00f0ff, realistic: true, unlocked: true },
+            { id: 7, key: '8', name: 'ELVIS/MJ GOLD SMG', icon: '👑', dmg: 52, rate: 0.07, mag: 100, range: 65, color: 0xffe600, realistic: true, unlocked: true },
+            { id: 8, key: '9', name: 'ALIEN PLASMA GATLING', icon: '🛸', dmg: 75, rate: 0.05, mag: 200, range: 80, color: 0x00ff88, realistic: true, unlocked: true }
+        ];
+
+        const CITIES = [
+            { id: 0, name: 'OSCEOLA, AR', x: 0, z: 0, sky: 0x090d16, ground: 0x1e293b },
+            { id: 1, name: 'MEMPHIS, TN', x: 260, z: 0, sky: 0x110c24, ground: 0x1e1b4b },
+            { id: 2, name: 'MOTOR-MUSIC CITY', x: 0, z: -260, sky: 0x1a0b1e, ground: 0x18181b },
+            { id: 3, name: 'CARIBBEAN ISLAND', x: -260, z: 0, sky: 0x06283d, ground: 0x14532d },
+            { id: 4, name: 'AREA 51 MOON BASE', x: 0, z: 260, sky: 0x020617, ground: 0x334155 },
+            { id: 5, name: 'SUPER-FORTRESS SIEGE', x: 155, z: 0, sky: 0x2a0410, ground: 0x0f172a }
+        ];
+
+        const CAR_MODES = [
+            { id: 0, name: '1970s STREET MUSCLE CAR', speed: 34, fly: false },
+            { id: 1, name: 'RIVER HOVER-SPEEDBOAT', speed: 40, fly: false },
+            { id: 2, name: '6-FT MUD MONSTER-TRUCK', speed: 36, fly: false },
+            { id: 3, name: 'SUPERSONIC UFO JET-CAR', speed: 52, fly: true }
+        ];
+
+        const state = {
+            inGame: false,
+            customizingSlot: 0,
+            activeHeroIdx: 0,
+            activeWeaponIdx: 4, // Starts with realistic Tac Assault Rifle ready!
+            currentMag: 45,
+            fireCooldown: 0,
+
+            // Progression & Currencies
+            scrap: 250,
+            gold: 100,
+            xp: 0,
+            kills: 0,
+            skillLevel: 1,
+            armorTier: 2, // 0=Street, 1=Sports, 2=Ninja Jetpack, 3=Cyber-Samurai, 4=Golden Scrap
+            prestigeTier: 1,
+            bloodMoonActive: false,
+            superCharge: 100,
+
+            // Weapon Bench Attachments
+            mods: { thermal: false, drum: false, incendiary: false, gold: false },
+
+            // Collectibles for the 5 Secret Legends
+            collectibles: {
+                elvis: 0,    // / 30 Disco Records
+                mj: 0,       // / 50 Grammys
+                miley: 0,    // / 30 Pink Music Notes
+                britney: 0,  // / 50 Pink Champagnes
+                alien: 0     // / 20 UFO Parts
+            },
+
+            // Vehicle & World Mode
+            currentCityIdx: 0,
+            isDrivingCar: false,
+            carModeIdx: 0, // 0=Muscle, 1=Hover, 2=Monster Truck, 3=Supersonic UFO Jet
+
+            // Active Boss Duel or 100-Wave Raid State
+            activeBoss: null,
+            raidActive: false,
+            raidWave: 1,
+            raidEnemiesLeft: 0,
+
+            // Physics & Camera
+            keys: {},
+            isMouseDown: false,
+            camYaw: 0,
+            camPitch: 0.25,
+            recoilKick: 0,
+            velY: 0,
+            isGrounded: true,
+            dogShootTimer: 0
+        };
+
+        // =========================================================================
+        // 3. THREE.JS SCENE, CEL-SHADING & REALISTIC BALLISTICS SETUP
+        // =========================================================================
+        const canvas = document.getElementById('game-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x090d16);
+        scene.fog = new THREE.FogExp2(0x090d16, 0.0028);
+
+        const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 800);
+
+        // 3-Tone Cel-Shading Gradient
+        function createToonGradient() {
+            const data = new Uint8Array([75, 170, 255]);
+            const tex = new THREE.DataTexture(data, 3, 1, THREE.LuminanceFormat);
+            tex.minFilter = THREE.NearestFilter;
+            tex.magFilter = THREE.NearestFilter;
+            tex.needsUpdate = true;
+            return tex;
+        }
+        const toonGradient = createToonGradient();
+
+        function makeToonMat(colorHex, emissiveHex = 0x000000, emissiveIntensity = 0) {
+            return new THREE.MeshToonMaterial({
+                color: new THREE.Color(colorHex),
+                gradientMap: toonGradient,
+                emissive: new THREE.Color(emissiveHex),
+                emissiveIntensity: emissiveIntensity
+            });
+        }
+
+        const outlineMat = new THREE.MeshBasicMaterial({ color: 0x050505, side: THREE.BackSide });
+
+        function createComicMesh(geometry, material, outlineThickness = 0.05) {
+            const group = new THREE.Group();
+            const mainMesh = new THREE.Mesh(geometry, material);
+            mainMesh.castShadow = true;
+            mainMesh.receiveShadow = true;
+            group.add(mainMesh);
+            if (outlineThickness > 0) {
+                const outlineMesh = new THREE.Mesh(geometry, outlineMat);
+                outlineMesh.scale.setScalar(1 + outlineThickness);
+                group.add(outlineMesh);
+            }
+            group.userData.mainMesh = mainMesh;
+            return group;
+        }
+
+        const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.8);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfff4d6, 1.2);
+        dirLight.position.set(80, 140, 60);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // Dynamic Muzzle Flash Light attached near player
+        const muzzleLight = new THREE.PointLight(0xffe600, 0, 18);
+        scene.add(muzzleLight);
+
+        // =========================================================================
+        // 4. BUILD ALL 5 PLAYABLE WORLDS + SUPER-FORTRESS IN 3D SPACE
+        // =========================================================================
+        const destructibles = [];
+        const worldCollectibles = [];
+        const enemies = [];
+        const brassCasings = [];
+        const bullets = [];
+        const builtTurrets = [];
+        const scrapDrops = [];
+
+        function buildFiveWorlds() {
+            // 1. OSCEOLA, AR (Center: 0, 0) - Treehouse, Junkyard, Neon Arcade & Respawn Device
+            const gOsceola = new THREE.Mesh(new THREE.BoxGeometry(200, 4, 200), makeToonMat(0x1e293b));
+            gOsceola.position.set(0, -2, 0);
+            gOsceola.receiveShadow = true;
+            scene.add(gOsceola);
+
+            const trunk = createComicMesh(new THREE.CylinderGeometry(3.5, 4.5, 14, 10), makeToonMat(0x5c3a21), 0.04);
+            trunk.position.set(0, 7, 0);
+            scene.add(trunk);
+            const cabin = createComicMesh(new THREE.BoxGeometry(12, 8, 12), makeToonMat(0xd97706), 0.04);
+            cabin.position.set(0, 15, 0);
+            scene.add(cabin);
+            const foliage = createComicMesh(new THREE.DodecahedronGeometry(11, 1), makeToonMat(0x16a34a), 0.03);
+            foliage.position.set(0, 22, 0);
+            scene.add(foliage);
+
+            // Osceola Overdrive Blood-Moon Respawn Device Spire
+            const respawnSpire = createComicMesh(new THREE.ConeGeometry(2.5, 9, 6), makeToonMat(0xff0055, 0xff0055, 0.7), 0.05);
+            respawnSpire.position.set(-14, 4.5, 10);
+            scene.add(respawnSpire);
+
+            // 2. MISSISSIPPI RIVER, SUPER-FORTRESS & MEMPHIS, TN (Center: 260, 0)
+            const river = new THREE.Mesh(new THREE.BoxGeometry(100, 3.5, 320), makeToonMat(0x0284c7, 0x00f0ff, 0.2));
+            river.position.set(145, -2.1, 0);
+            scene.add(river);
+
+            const bridge = new THREE.Mesh(new THREE.BoxGeometry(120, 1.2, 22), makeToonMat(0x334155));
+            bridge.position.set(145, 0.2, 0);
+            scene.add(bridge);
+
+            // Mobile Treehouse-Riverboat Super-Fortress in the Mississippi River (155, 0, 45)
+            const riverboatHull = createComicMesh(new THREE.BoxGeometry(36, 6, 18), makeToonMat(0x991b1b), 0.04);
+            riverboatHull.position.set(155, 3, 45);
+            scene.add(riverboatHull);
+            const riverboatDeck = createComicMesh(new THREE.BoxGeometry(28, 8, 14), makeToonMat(0xf8fafc), 0.04);
+            riverboatDeck.position.set(155, 10, 45);
+            scene.add(riverboatDeck);
+
+            const gMemphis = new THREE.Mesh(new THREE.BoxGeometry(180, 4, 200), makeToonMat(0x1e1b4b));
+            gMemphis.position.set(260, -2, 0);
+            scene.add(gMemphis);
+
+            // Glowing Memphis Bass-Pyramid
+            const pyramid = createComicMesh(new THREE.ConeGeometry(30, 42, 4), makeToonMat(0x00f0ff, 0x00f0ff, 0.4), 0.03);
+            pyramid.position.set(285, 21, -35);
+            pyramid.rotation.y = Math.PI / 4;
+            scene.add(pyramid);
+
+            // 3. MOTOR-MUSIC CITY (Nashville/Detroit Hybrid at 0, -260)
+            const gMotor = new THREE.Mesh(new THREE.BoxGeometry(190, 4, 190), makeToonMat(0x18181b));
+            gMotor.position.set(0, -2, -260);
+            scene.add(gMotor);
+
+            // V8 Vinyl Skyscraper Derby Tower with Spiraling Neon Ramps
+            const vinylTower = createComicMesh(new THREE.CylinderGeometry(18, 22, 65, 16), makeToonMat(0x111827, 0xff0055, 0.25), 0.03);
+            vinylTower.position.set(0, 32, -275);
+            scene.add(vinylTower);
+
+            // 4. CARIBBEAN PIRATE-JUNGLE MONSTER-TRUCK ISLAND (-260, 0)
+            const gIsland = new THREE.Mesh(new THREE.BoxGeometry(190, 4, 190), makeToonMat(0x14532d));
+            gIsland.position.set(-260, -2, 0);
+            scene.add(gIsland);
+
+            const pirateFort = createComicMesh(new THREE.BoxGeometry(34, 18, 34), makeToonMat(0x78716c), 0.04);
+            pirateFort.position.set(-275, 9, -25);
+            scene.add(pirateFort);
+
+            // Giant Swinging Spiked Wrecking Ball over the Caribbean Fort!
+            const wbChain = createComicMesh(new THREE.CylinderGeometry(0.4, 0.4, 22, 8), makeToonMat(0x94a3b8), 0.03);
+            wbChain.position.set(-250, 24, 15);
+            scene.add(wbChain);
+            const wreckingBallMesh = createComicMesh(new THREE.DodecahedronGeometry(5.5, 1), makeToonMat(0xff0055, 0xff0055, 0.45), 0.05);
+            wreckingBallMesh.position.set(-250, 12, 15);
+            scene.add(wreckingBallMesh);
+            scene.userData.wreckingBall = wreckingBallMesh;
+
+            // 5. AREA 51 / RETRO MOON-CRATER ALIEN BASE (0, 260)
+            const gMoon = new THREE.Mesh(new THREE.BoxGeometry(190, 4, 190), makeToonMat(0x334155));
+            gMoon.position.set(0, -2, 260);
+            scene.add(gMoon);
+
+            const ufoHangar = createComicMesh(new THREE.SphereGeometry(28, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), makeToonMat(0x00ff88, 0x00ff88, 0.3), 0.03);
+            ufoHangar.position.set(0, 0, 280);
+            scene.add(ufoHangar);
+
+            // Populate Destructible Cars, Amplifiers, Pirate Barges & Cavern Walls across all 5 cities
+            CITIES.slice(0, 5).forEach((c) => {
+                for (let i = 0; i < 12; i++) {
+                    const angle = (i / 12) * Math.PI * 2;
+                    const r = 24 + (i % 3) * 18;
+                    const px = c.x + Math.cos(angle) * r;
+                    const pz = c.z + Math.sin(angle) * r;
+                    const colors = [0xef4444, 0x3b82f6, 0xeab308, 0xa855f7];
+                    const mesh = createComicMesh(
+                        new THREE.BoxGeometry(3.4, 2.2, 5.2),
+                        makeToonMat(colors[i % colors.length]),
+                        0.05
+                    );
+                    mesh.position.set(px, 1.1, pz);
+                    scene.add(mesh);
+                    destructibles.push({ mesh, hp: 45, maxHp: 45, alive: true });
+                }
+            });
+
+            // Spawn Collectible Items (Disco Records, Grammys, Pink Music Notes, Pink Champagne, UFO Parts)
+            const colTypes = [
+                { type: 'elvis', color: 0xffe600, cityIdx: 1, label: 'DISCO RECORD' },
+                { type: 'mj', color: 0xfacc15, cityIdx: 2, label: 'GRAMMY AWARD' },
+                { type: 'miley', color: 0xff0055, cityIdx: 3, label: 'PINK MUSIC NOTE' },
+                { type: 'britney', color: 0xf472b6, cityIdx: 0, label: 'PINK CHAMPAGNE' },
+                { type: 'alien', color: 0x00ff88, cityIdx: 4, label: 'UFO ENGINE PART' }
+            ];
+            colTypes.forEach(ct => {
+                const center = CITIES[ct.cityIdx];
+                for (let i = 0; i < 10; i++) {
+                    const ang = (i / 10) * Math.PI * 2;
+                    const rad = 16 + (i % 2) * 20;
+                    const itemMesh = createComicMesh(
+                        new THREE.OctahedronGeometry(1.1, 0),
+                        makeToonMat(ct.color, ct.color, 0.85),
+                        0.06
+                    );
+                    itemMesh.position.set(center.x + Math.cos(ang) * rad, 1.8, center.z + Math.sin(ang) * rad);
+                    scene.add(itemMesh);
+                    worldCollectibles.push({ mesh: itemMesh, type: ct.type, label: ct.label, taken: false });
+                }
+            });
+        }
+        buildFiveWorlds();
+
+        // =========================================================================
+        // 5. HERO MODELS, AI SQUADMATES, PITBULL & 4-IN-1 TRANSFORMER CAR
+        // =========================================================================
+        const playerGroup = new THREE.Group();
+        playerGroup.position.set(0, 0, 18);
+        scene.add(playerGroup);
+
+        function buildCharacterRig(heroData) {
+            const rig = new THREE.Group();
+            const matSkin = makeToonMat(heroData.skin);
+            const matHair = makeToonMat(heroData.hair);
+            const matEye = makeToonMat(heroData.eye, heroData.eye, 0.7);
+            const matShirt = makeToonMat(heroData.shirt);
+            const matPants = makeToonMat(0x1d4ed8);
+
+            const legL = createComicMesh(new THREE.BoxGeometry(0.55, 1.3, 0.55), matPants, 0.06);
+            legL.position.set(-0.38, 0.65, 0);
+            rig.add(legL);
+
+            const legR = createComicMesh(new THREE.BoxGeometry(0.55, 1.3, 0.55), matPants, 0.06);
+            legR.position.set(0.38, 0.65, 0);
+            rig.add(legR);
+
+            const torso = createComicMesh(new THREE.BoxGeometry(1.38, 1.55, 0.78), matShirt, 0.06);
+            torso.position.set(0, 2.0, 0);
+            rig.add(torso);
+
+            const head = createComicMesh(new THREE.BoxGeometry(1.15, 1.15, 1.15), matSkin, 0.06);
+            head.position.set(0, 3.35, 0);
+            rig.add(head);
+
+            const visor = createComicMesh(new THREE.BoxGeometry(1.26, 0.36, 0.35), matEye, 0.04);
+            visor.position.set(0, 3.4, 0.55);
+            rig.add(visor);
+
+            const hair = createComicMesh(new THREE.BoxGeometry(1.26, 0.45, 1.26), matHair, 0.05);
+            hair.position.set(0, 3.9, 0);
+            rig.add(hair);
+
+            // Shoulder Pads & Twin-Turbo Jetpack
+            const padL = createComicMesh(new THREE.BoxGeometry(0.8, 0.45, 0.9), makeToonMat(0xffe600), 0.05);
+            padL.position.set(-0.95, 2.6, 0);
+            rig.add(padL);
+
+            const padR = createComicMesh(new THREE.BoxGeometry(0.8, 0.45, 0.9), makeToonMat(0xffe600), 0.05);
+            padR.position.set(0.95, 2.6, 0);
+            rig.add(padR);
+
+            const jetpack = createComicMesh(new THREE.BoxGeometry(1.0, 1.2, 0.55), makeToonMat(0x00f0ff, 0x00f0ff, 0.4), 0.05);
+            jetpack.position.set(0, 2.1, -0.65);
+            rig.add(jetpack);
+
+            // Right Arm + Realistic Gun Barrel & Muzzle Flash Cone
+            const gunArm = new THREE.Group();
+            gunArm.position.set(0.95, 2.3, 0.2);
+            rig.add(gunArm);
+
+            const gunBarrel = createComicMesh(new THREE.BoxGeometry(0.32, 0.38, 2.1), makeToonMat(0x1f2937), 0.05);
+            gunBarrel.position.set(0, 0, 0.9);
+            gunArm.add(gunBarrel);
+
+            const muzzleCone = new THREE.Mesh(
+                new THREE.ConeGeometry(0.45, 1.2, 8),
+                new THREE.MeshBasicMaterial({ color: 0xffe600, transparent: true, opacity: 0 })
+            );
+            muzzleCone.rotation.x = Math.PI / 2;
+            muzzleCone.position.set(0, 0, 2.3);
+            gunArm.add(muzzleCone);
+
+            rig.userData = { matSkin, matHair, matEye, matShirt, padL, padR, gunBarrel, muzzleCone, legL, legR };
+            return rig;
+        }
+
+        const heroRig = buildCharacterRig(HERO_ROSTER[0]);
+        playerGroup.add(heroRig);
+
+        // Build 2 AI Squadmate Rigs that follow & fight alongside the player (or mount Car Turrets!)
+        const squadMates = [1, 2].map((slotIdx, i) => {
+            const g = new THREE.Group();
+            const rig = buildCharacterRig(HERO_ROSTER[slotIdx]);
+            g.add(rig);
+            g.position.set(i === 0 ? -4 : 4, 0, 21);
+            scene.add(g);
+            return { group: g, rig, slotIdx, shootTimer: Math.random() * 0.8 };
+        });
+
+        // Build TANK the Armored Pitbull Sidekick
+        const dogGroup = new THREE.Group();
+        dogGroup.position.set(-2.5, 0, 17);
+        scene.add(dogGroup);
+        const dogBody = createComicMesh(new THREE.BoxGeometry(1.15, 0.95, 1.5), makeToonMat(0x78553a), 0.06);
+        dogBody.position.y = 0.75;
+        dogGroup.add(dogBody);
+        const dogHead = createComicMesh(new THREE.BoxGeometry(0.95, 0.85, 0.95), makeToonMat(0x78553a), 0.06);
+        dogHead.position.set(0, 1.35, 0.75);
+        dogGroup.add(dogHead);
+        const dogTurret = createComicMesh(new THREE.CylinderGeometry(0.24, 0.24, 1.0, 10), makeToonMat(0x00ff88, 0x00ff88, 0.7), 0.05);
+        dogTurret.rotation.x = Math.PI / 2;
+        dogTurret.position.set(0, 1.55, 0.1);
+        dogGroup.add(dogTurret);
+
+        // Build the 4-in-1 Transformable 1970s Muscle Car
+        const vehicleGroup = new THREE.Group();
+        vehicleGroup.position.set(12, 0.9, 14);
+        scene.add(vehicleGroup);
+
+        const carChassis = createComicMesh(new THREE.BoxGeometry(4.8, 1.4, 9.2), makeToonMat(0xff0055), 0.04);
+        carChassis.position.y = 1.0;
+        vehicleGroup.add(carChassis);
+
+        const carBlower = createComicMesh(new THREE.BoxGeometry(1.8, 1.2, 2.2), makeToonMat(0xffe600, 0xffe600, 0.5), 0.05);
+        carBlower.position.set(0, 2.1, 2.4);
+        vehicleGroup.add(carBlower);
+
+        // Monster-Truck 6-Foot Tires Group
+        const monsterWheelsGroup = new THREE.Group();
+        [[-2.8, 0.4, 3.0], [2.8, 0.4, 3.0], [-2.8, 0.4, -3.0], [2.8, 0.4, -3.0]].forEach(([wx, wy, wz]) => {
+            const mw = createComicMesh(new THREE.CylinderGeometry(1.4, 1.4, 1.2, 14), makeToonMat(0x111827), 0.05);
+            mw.rotation.z = Math.PI / 2;
+            mw.position.set(wx, wy, wz);
+            monsterWheelsGroup.add(mw);
+        });
+        vehicleGroup.add(monsterWheelsGroup);
+
+        // Hover-Skirt & UFO Saucer Wing Ring (for Hover-Boat & Supersonic UFO Jet modes)
+        const saucerRing = createComicMesh(new THREE.TorusGeometry(4.6, 0.45, 10, 24), makeToonMat(0x00f0ff, 0x00f0ff, 0.8), 0.04);
+        saucerRing.rotation.x = Math.PI / 2;
+        saucerRing.position.y = 0.8;
+        saucerRing.visible = false;
+        vehicleGroup.add(saucerRing);
+
+        // =========================================================================
+        // 6. ENEMY & BOSS SPAWNER (SLEEPWALKERS, SUPERSTAR LEGENDS & 100-FT TV-TITAN)
+        // =========================================================================
+        function spawnEnemy(x, z, isBoss = null) {
+            const g = new THREE.Group();
+            g.position.set(x, 0, z);
+
+            let scale = 1.0;
+            let hp = 45 * state.prestigeTier;
+            let color = state.bloodMoonActive ? 0xdc2626 : 0x7c3aed;
+            let name = 'Sleepwalker';
+
+            if (isBoss) {
+                scale = isBoss.key === 'baron' ? 4.8 : 2.3;
+                hp = isBoss.hp * state.prestigeTier;
+                color = isBoss.color;
+                name = isBoss.name;
+            }
+
+            const body = createComicMesh(new THREE.BoxGeometry(1.3 * scale, 2.2 * scale, 0.95 * scale), makeToonMat(color), 0.05);
+            body.position.y = 1.1 * scale;
+            g.add(body);
+
+            const head = createComicMesh(new THREE.BoxGeometry(1.05 * scale, 1.05 * scale, 1.05 * scale), makeToonMat(0x00ff88, 0x00ff88, 0.4), 0.05);
+            head.position.y = 2.85 * scale;
+            g.add(head);
+
+            scene.add(g);
+            const enemyObj = {
+                mesh: g,
+                hp,
+                maxHp: hp,
+                speed: isBoss ? 8.5 : (4.2 + Math.random() * 2.5),
+                isBoss,
+                name
+            };
+            enemies.push(enemyObj);
+            return enemyObj;
+        }
+
+        function populateAmbientZombies() {
+            const center = CITIES[state.currentCityIdx];
+            for (let i = 0; i < 14; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const r = 22 + Math.random() * 50;
+                spawnEnemy(center.x + Math.cos(a) * r, center.z + Math.sin(a) * r);
+            }
+        }
+        populateAmbientZombies();
+
+        // =========================================================================
+        // 7. REALISTIC BALLISTICS: MUZZLE FLASH, FLYING BRASS SHELLS & TRACERS
+        // =========================================================================
+        const popupContainer = document.getElementById('comic-popups');
+
+        function spawnComicPopup(worldPos, text, bgColor = '#ffe600', textColor = '#050505') {
+            const vec = worldPos.clone();
+            vec.y += 2.6;
+            vec.project(camera);
+            if (vec.z > 1) return;
+            const x = (vec.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (-(vec.y * 0.5) + 0.5) * window.innerHeight;
+            const el = document.createElement('div');
+            el.className = 'comic-bubble';
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            el.style.backgroundColor = bgColor;
+            el.style.color = textColor;
+            el.textContent = text;
+            popupContainer.appendChild(el);
+            setTimeout(() => el.remove(), 800);
+        }
+
+        function ejectBrassCasing(originPos) {
+            const casing = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.06, 0.06, 0.24, 6),
+                new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.85, roughness: 0.2 })
+            );
+            casing.position.copy(originPos);
+            casing.position.y += 2.3;
+            scene.add(casing);
+            brassCasings.push({
+                mesh: casing,
+                vel: new THREE.Vector3((Math.random() - 0.2) * 7, 4 + Math.random() * 3, (Math.random() - 0.5) * 7),
+                life: 1.8
+            });
+        }
+
+        function fireWeapon() {
+            const w = WEAPONS[state.activeWeaponIdx];
+            if (state.fireCooldown > 0) return;
+
+            if (!w.melee && state.currentMag <= 0) {
+                reloadWeapon();
+                return;
+            }
+
+            state.fireCooldown = w.rate;
+            if (!w.melee) state.currentMag--;
+
+            // Realistic Sound + Camera Recoil + Crosshair Bloom
+            SoundFX.gunshot(w.melee ? 120 : 185, w.pellets || w.quake);
+            state.recoilKick = 0.045;
+            const ch = document.getElementById('crosshair');
+            ch.style.transform = 'translate(-50%, -50%) scale(1.45)';
+            setTimeout(() => { ch.style.transform = 'translate(-50%, -50%) scale(1)'; }, 65);
+
+            // Muzzle Flash & Flying Brass Shell Casing
+            heroRig.userData.muzzleCone.material.opacity = 0.95;
+            muzzleLight.position.copy(playerGroup.position).add(new THREE.Vector3(0, 2.5, 0));
+            muzzleLight.intensity = 3.5;
+            setTimeout(() => {
+                heroRig.userData.muzzleCone.material.opacity = 0;
+                muzzleLight.intensity = 0;
+            }, 55);
+
+            if (!w.melee) ejectBrassCasing(playerGroup.position);
+
+            // Spawn Realistic High-Speed Tracer Projectile(s)
+            const count = w.pellets || 1;
+            const forward = new THREE.Vector3(-Math.sin(state.camYaw), 0, -Math.cos(state.camYaw)).normalize();
+            const dmgMult = (1 + (state.skillLevel - 1) * 0.2) * (state.mods.thermal ? 1.25 : 1) * (state.mods.incendiary ? 1.4 : 1);
+
+            for (let i = 0; i < count; i++) {
+                const spreadDir = forward.clone();
+                if (count > 1) {
+                    spreadDir.x += (Math.random() - 0.5) * 0.22;
+                    spreadDir.z += (Math.random() - 0.5) * 0.22;
+                    spreadDir.normalize();
+                }
+
+                const tracerColor = state.mods.incendiary ? 0xff4500 : w.color;
+                const beam = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.16, 0.16, 2.2),
+                    new THREE.MeshBasicMaterial({ color: tracerColor })
+                );
+                beam.position.copy(playerGroup.position).add(new THREE.Vector3(0, 2.1, 0));
+                beam.lookAt(beam.position.clone().add(spreadDir));
+                scene.add(beam);
+
+                bullets.push({
+                    mesh: beam,
+                    dir: spreadDir,
+                    speed: 115,
+                    dmg: w.dmg * dmgMult,
+                    life: 0.7
+                });
+            }
+
+            // Close-Range Melee / Bass-Hammer Quake Check
+            const aoeRange = w.quake ? 12 : (w.melee ? 7.5 : 0);
+            if (aoeRange > 0) {
+                damageTargetsInRadius(playerGroup.position, aoeRange, w.dmg * dmgMult, w.quake ? 'BASS QUAKE!' : 'SMASH!');
+            }
+
+            updateHUD();
+        }
+
+        function reloadWeapon() {
+            const w = WEAPONS[state.activeWeaponIdx];
+            const maxMag = state.mods.drum ? w.mag * 2 : w.mag;
+            state.currentMag = maxMag;
+            SoundFX.reload();
+            spawnComicPopup(playerGroup.position, 'TAC RELOAD!', '#00f0ff', '#050505');
+            updateHUD();
+        }
+
+        function damageTargetsInRadius(origin, radius, dmg, popupLabel = 'BAM!') {
+            // Damage Enemies & Bosses
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const e = enemies[i];
+                if (e.mesh.position.distanceTo(origin) <= radius) {
+                    e.hp -= dmg;
+                    spawnComicPopup(e.mesh.position, popupLabel, '#ff0055', '#ffffff');
+                    if (e.hp <= 0) {
+                        handleEnemyDefeated(e, i);
+                    }
+                }
+            }
+            // Damage Destructibles
+            destructibles.forEach(d => {
+                if (d.alive && d.mesh.position.distanceTo(origin) <= radius + 1.5) {
+                    d.hp -= dmg;
+                    spawnComicPopup(d.mesh.position, 'KRAK!', '#ffe600', '#050505');
+                    if (d.hp <= 0) {
+                        d.alive = false;
+                        scene.remove(d.mesh);
+                        state.scrap += 15;
+                        state.xp += 10;
+                        updateHUD();
+                    }
+                }
+            });
+        }
+
+        function handleEnemyDefeated(e, index) {
+            scene.remove(e.mesh);
+            enemies.splice(index, 1);
+            state.kills++;
+            state.scrap += 12 * state.prestigeTier;
+            state.gold += 8 * state.prestigeTier;
+            state.xp += 20 * state.prestigeTier;
+            state.superCharge = Math.min(100, state.superCharge + 12);
+
+            if (e.isBoss) {
+                const b = e.isBoss;
+                state.activeBoss = null;
+                if (b.rosterIdx !== undefined) {
+                    HERO_ROSTER[b.rosterIdx].unlocked = true;
+                    state.activeHeroIdx = b.rosterIdx;
+                    applyActiveHeroVisuals();
+                    showUnlockBanner(
+                        `🏆 ${b.name} DEFEATED & UNLOCKED!`,
+                        `${b.name} has joined your playable Squad along with their signature weapon! Press [T] or click their icon to tag in anytime!`
+                    );
+                } else if (b.key === 'baron') {
+                    state.armorTier = 4;
+                    applyActiveHeroVisuals();
+                    showUnlockBanner(
+                        '👑 BARON BROADCAST & TV-TITAN DEFEATED!',
+                        'You unleashed the 3-Hero Cure-Wave Concert! Unlocked Tier 4 Golden Comic-Book Scrap Armor & Supersonic UFO Jet-Car!'
+                    );
+                }
+            }
+
+            if (state.raidActive) {
+                state.raidEnemiesLeft--;
+                if (state.raidEnemiesLeft <= 0) {
+                    advanceRaidWave();
+                }
+            }
+
+            if (enemies.length < 6 && !state.raidActive) {
+                populateAmbientZombies();
+            }
+            updateHUD();
+        }
+
+        // =========================================================================
+        // 8. BOSS ARENA DUELS, 100-WAVE PORTAL RAID & BLOOD-MOON RESPAWN DEVICE
+        // =========================================================================
+        const BOSS_CONFIGS = {
+            elvis: { key: 'elvis', name: 'ZOMBIE ELVIS PRESLEY', cityIdx: 1, rosterIdx: 3, colKey: 'elvis', req: 30, hp: 550, color: 0xffe600 },
+            mj: { key: 'mj', name: 'ZOMBIE MICHAEL JACKSON', cityIdx: 2, rosterIdx: 4, colKey: 'mj', req: 50, hp: 620, color: 0x00f0ff },
+            miley: { key: 'miley', name: 'ZOMBIE MILEY CYRUS', cityIdx: 3, rosterIdx: 5, colKey: 'miley', req: 30, hp: 580, color: 0xff0055 },
+            britney: { key: 'britney', name: 'ZOMBIE BRITNEY SPEARS', cityIdx: 0, rosterIdx: 6, colKey: 'britney', req: 50, hp: 600, color: 0xf472b6 },
+            alien: { key: 'alien', name: 'SECRET ALIEN HUNTER', cityIdx: 4, rosterIdx: 7, colKey: 'alien', req: 20, hp: 750, color: 0x00ff88 },
+            baron: { key: 'baron', name: 'BARON BROADCAST (100-FT TV-TITAN)', cityIdx: 5, hp: 1400, color: 0xffe600 }
+        };
+
+        function startBossDuel(bossKey) {
+            const cfg = BOSS_CONFIGS[bossKey];
+            if (!cfg) return;
+            if (cfg.colKey) {
+                state.collectibles[cfg.colKey] = cfg.req;
+            }
+            warpToCity(cfg.cityIdx);
+            // Clear ambient enemies for intense 1-on-1 Duel with Tank the Pitbull!
+            enemies.forEach(e => scene.remove(e.mesh));
+            enemies.length = 0;
+
+            const c = CITIES[cfg.cityIdx];
+            const bossObj = spawnEnemy(c.x, c.z - 22, cfg);
+            state.activeBoss = bossObj;
+            SoundFX.fanfare();
+            showUnlockBanner(`⚔️ 1-ON-1 BOSS DUEL: VS ${cfg.name}!`, `Skate, Jetpack, and unleash realistic gunfire with Tank the Pitbull to defeat ${cfg.name}!`);
+            updateHUD();
+        }
+
+        function activateBloodMoonRespawn() {
+            state.bloodMoonActive = true;
+            state.prestigeTier++;
+            scene.background.setHex(0x2b030c);
+            scene.fog.color.setHex(0x2b030c);
+            // Respawn all destructibles & stronger Blood-Moon zombies
+            destructibles.forEach(d => {
+                if (!d.alive) {
+                    d.alive = true;
+                    d.hp = d.maxHp * state.prestigeTier;
+                    scene.add(d.mesh);
+                }
+            });
+            populateAmbientZombies();
+            SoundFX.fanfare();
+            showUnlockBanner(
+                `🩸 BLOOD-MOON PRESTIGE TIER ${state.prestigeTier} ACTIVATED!`,
+                `All zombies, destructibles, and bosses respawned with higher power and +${state.prestigeTier * 100}% XP & Gold Scrap drops!`
+            );
+            updateHUD();
+        }
+
+        function start100WaveRaid() {
+            state.raidActive = true;
+            state.raidWave = 1;
+            spawnRaidWave();
+            showUnlockBanner('🌀 100-WAVE MULTI-CITY PORTAL GAUNTLET!', 'Every 10 waves the Overcharged Portal warps your Superstar Squad to a new city! Press [N] or click below to build Bass-Cannons & Laser Turrets!');
+        }
+
+        function spawnRaidWave() {
+            const c = CITIES[state.currentCityIdx];
+            const count = 6 + Math.min(14, Math.floor(state.raidWave / 2));
+            state.raidEnemiesLeft = count;
+            for (let i = 0; i < count; i++) {
+                const a = (i / count) * Math.PI * 2;
+                spawnEnemy(c.x + Math.cos(a) * 32, c.z + Math.sin(a) * 32);
+            }
+            updateHUD();
+        }
+
+        function advanceRaidWave() {
+            state.raidWave = Math.min(100, state.raidWave + 1);
+            if (state.raidWave % 10 === 0) {
+                const nextCity = (state.currentCityIdx + 1) % 5;
+                warpToCity(nextCity);
+                showUnlockBanner(`🌀 WAVE ${state.raidWave}: PORTAL SHIFT TO ${CITIES[nextCity].name}!`, 'Your Superstar Squad warped to the next battleground!');
+            } else {
+                spawnComicPopup(playerGroup.position, `WAVE ${state.raidWave} INCOMING!`, '#00ff88', '#050505');
+            }
+            spawnRaidWave();
+        }
+
+        function buildDefenseTurret(turretType = 'bass') {
+            if (state.gold < 25) {
+                spawnComicPopup(playerGroup.position, 'NEED 25 GOLD SCRAP!', '#ff0055', '#ffffff');
+                return;
+            }
+            state.gold -= 25;
+            const col = turretType === 'bass' ? 0x00f0ff : (turretType === 'tennis' ? 0x00ff88 : 0xff0055);
+            const tMesh = createComicMesh(new THREE.CylinderGeometry(0.9, 1.3, 2.6, 10), makeToonMat(col, col, 0.6), 0.05);
+            tMesh.position.copy(playerGroup.position);
+            tMesh.position.y = 1.3;
+            scene.add(tMesh);
+            builtTurrets.push({ mesh: tMesh, type: turretType, cooldown: 0, color: col });
+            SoundFX.reload();
+            spawnComicPopup(tMesh.position, `${turretType.toUpperCase()} TURRET BUILT!`, '#00ff88', '#050505');
+            updateHUD();
+        }
+
+        // =========================================================================
+        // 9. UI BINDINGS, WEAPON WHEEL, SQUAD TAG-TEAM & TELEPORTER
+        // =========================================================================
+        function showUnlockBanner(title, desc) {
+            const b = document.getElementById('unlock-banner');
+            document.getElementById('unlock-banner-title').textContent = title;
+            document.getElementById('unlock-banner-desc').textContent = desc;
+            b.classList.remove('hidden');
+            setTimeout(() => b.classList.add('hidden'), 5500);
+        }
+
+        function applyActiveHeroVisuals() {
+            const h = HERO_ROSTER[state.activeHeroIdx];
+            heroRig.userData.matSkin.color.set(h.skin);
+            heroRig.userData.matHair.color.set(h.hair);
+            heroRig.userData.matEye.color.set(h.eye);
+            heroRig.userData.matShirt.color.set(h.shirt);
+
+            const armorColors = [0x64748b, 0xdc2626, 0x00f0ff, 0xff0055, 0xffe600];
+            heroRig.userData.padL.userData.mainMesh.material.color.setHex(armorColors[state.armorTier] || 0xffe600);
+            heroRig.userData.padR.userData.mainMesh.material.color.setHex(armorColors[state.armorTier] || 0xffe600);
+
+            if (state.mods.gold) {
+                heroRig.userData.gunBarrel.userData.mainMesh.material.color.setHex(0xffe600);
+            }
+            if (h.sigWeapon !== undefined) {
+                selectWeapon(h.sigWeapon);
+            }
+            updateHUD();
+        }
+
+        function selectWeapon(idx) {
+            state.activeWeaponIdx = idx;
+            const w = WEAPONS[idx];
+            state.currentMag = state.mods.drum ? w.mag * 2 : w.mag;
+            SoundFX.reload();
+            updateHUD();
+        }
+
+        function tagNextHero() {
+            const unlockedList = HERO_ROSTER.filter(h => h.unlocked);
+            const curPos = unlockedList.findIndex(h => h.id === state.activeHeroIdx);
+            const nextHero = unlockedList[(curPos + 1) % unlockedList.length];
+            state.activeHeroIdx = nextHero.id;
+            applyActiveHeroVisuals();
+            SoundFX.speakHeroLine(`${nextHero.name} tagging in!`, nextHero.voice, nextHero.gender);
+            spawnComicPopup(playerGroup.position, `TAG IN: ${nextHero.name}!`, '#ffe600', '#050505');
+        }
+
+        function warpToCity(cityIdx) {
+            state.currentCityIdx = cityIdx;
+            const c = CITIES[cityIdx];
+            playerGroup.position.set(c.x, 0, c.z + 18);
+            dogGroup.position.set(c.x - 3, 0, c.z + 17);
+            vehicleGroup.position.set(c.x + 10, 0.9, c.z + 14);
+            squadMates.forEach((sm, i) => sm.group.position.set(c.x + (i === 0 ? -4 : 4), 0, c.z + 20));
+            if (!state.bloodMoonActive) {
+                scene.background.setHex(c.sky);
+                scene.fog.color.setHex(c.sky);
+            }
+            SoundFX.fanfare();
+            spawnComicPopup(playerGroup.position, `WARPED TO ${c.name}!`, '#00f0ff', '#050505');
+            populateAmbientZombies();
+            updateHUD();
+        }
+
+        function renderRosterAndWeaponStrip() {
+            // 8-Hero Roster Strip
+            const rStrip = document.getElementById('hud-roster-strip');
+            rStrip.innerHTML = '';
+            HERO_ROSTER.forEach(h => {
+                const btn = document.createElement('button');
+                const isActive = h.id === state.activeHeroIdx;
+                btn.className = `p-1 rounded text-center border transition ${
+                    isActive ? 'border-[#ffe600] bg-[#00f0ff]/30 scale-105' :
+                    h.unlocked ? 'border-[#00f0ff]/40 bg-black/70 hover:border-white' : 'border-gray-800 bg-black/40 opacity-45'
+                }`;
+                btn.innerHTML = `<div class="text-xs">${h.icon}</div><div class="text-[8px] font-bold truncate">${h.name.split(' ')[0]}</div>`;
+                btn.onclick = () => {
+                    if (!h.unlocked) {
+                        document.getElementById('boss-modal').classList.remove('hidden');
+                        document.getElementById('boss-modal').classList.add('flex');
+                        return;
+                    }
+                    state.activeHeroIdx = h.id;
+                    applyActiveHeroVisuals();
+                    spawnComicPopup(playerGroup.position, `TAG IN: ${h.name}!`, '#00f0ff', '#050505');
+                };
+                rStrip.appendChild(btn);
+            });
+
+            // 9-Weapon Wheel Strip
+            const wStrip = document.getElementById('weapon-wheel-strip');
+            wStrip.innerHTML = '';
+            WEAPONS.forEach((w, idx) => {
+                const btn = document.createElement('button');
+                const active = idx === state.activeWeaponIdx;
+                btn.className = `px-1.5 py-1 rounded border text-left flex items-center gap-1 transition ${
+                    active ? 'border-[#ffe600] bg-[#ff0055] text-white font-bold shadow' : 'border-white/15 bg-black/70 text-gray-300 hover:border-[#00f0ff]'
+                }`;
+                btn.innerHTML = `<span class="text-xs">${w.icon}</span><div class="truncate"><div class="text-[9px] text-[#ffe600] font-bold">[${w.key}]</div><div class="text-[9px] truncate">${w.name}</div></div>`;
+                btn.onclick = () => selectWeapon(idx);
+                wStrip.appendChild(btn);
+            });
+        }
+
+        function updateHUD() {
+            const h = HERO_ROSTER[state.activeHeroIdx];
+            const w = WEAPONS[state.activeWeaponIdx];
+            document.getElementById('hud-hero-icon').textContent = h.icon;
+            document.getElementById('hud-hero-name').textContent = h.name;
+            document.getElementById('hud-city-badge').textContent = CITIES[state.currentCityIdx].name;
+
+            const armorNames = ['Tier 0 Streetwear', 'Tier 1 Backyard Sports', 'Tier 2 Street-Ninja Jetpack', 'Tier 3 Cyber-Samurai', 'Tier 4 Golden Scrap Armor'];
+            document.getElementById('hud-armor-label').textContent = `Armor: ${armorNames[state.armorTier]}`;
+            document.getElementById('prestige-badge').textContent = `PRESTIGE TIER ${state.prestigeTier}`;
+
+            document.getElementById('res-scrap').textContent = state.scrap;
+            document.getElementById('res-gold').textContent = state.gold;
+            document.getElementById('res-xp').textContent = state.xp;
+            document.getElementById('res-kills').textContent = state.kills;
+            document.getElementById('hud-super-pct').textContent = `${Math.floor(state.superCharge)}%`;
+
+            document.getElementById('col-elvis').textContent = `${state.collectibles.elvis}/30`;
+            document.getElementById('col-mj').textContent = `${state.collectibles.mj}/50`;
+            document.getElementById('col-miley').textContent = `${state.collectibles.miley}/30`;
+            document.getElementById('col-britney').textContent = `${state.collectibles.britney}/50`;
+            document.getElementById('col-alien').textContent = `${state.collectibles.alien}/20`;
+
+            document.getElementById('hud-weapon-name').textContent = w.name;
+            document.getElementById('hud-ammo-count').textContent = w.melee ? '∞' : `${state.currentMag}/∞`;
+
+            if (state.activeBoss) {
+                document.getElementById('mission-title').textContent = `⚔️ 1-ON-1 BOSS DUEL: ${state.activeBoss.name}`;
+                const pct = Math.max(0, (state.activeBoss.hp / state.activeBoss.maxHp) * 100);
+                document.getElementById('mission-progress-bar').style.width = `${pct}%`;
+                document.getElementById('mission-subgoal-text').textContent = `Boss HP: ${Math.max(0, Math.ceil(state.activeBoss.hp))} / ${state.activeBoss.maxHp}`;
+            } else if (state.raidActive) {
+                document.getElementById('mission-title').textContent = `🌀 100-WAVE PORTAL GAUNTLET — WAVE ${state.raidWave} / 100`;
+                document.getElementById('mission-progress-bar').style.width = `${state.raidWave}%`;
+                document.getElementById('mission-subgoal-text').textContent = `Wave Enemies Remaining: ${state.raidEnemiesLeft} (Warps every 10 waves!)`;
+            } else {
+                document.getElementById('mission-title').textContent = `📍 ${CITIES[state.currentCityIdx].name} — FREE ROAM & LEGEND HUNT`;
+                document.getElementById('mission-progress-bar').style.width = '100%';
+                document.getElementById('mission-subgoal-text').textContent = state.isDrivingCar ? `Driving: ${CAR_MODES[state.carModeIdx].name} [Press C to Transform]` : `On Foot + Jetpack [Press V to Drive 4-in-1 Car]`;
+            }
+
+            renderRosterAndWeaponStrip();
+        }
+
+        // =========================================================================
+        // 10. EVENT LISTENERS FOR CUSTOMIZER, MODALS & CONTROLS
+        // =========================================================================
+        document.querySelectorAll('.squad-slot-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.customizingSlot = parseInt(btn.getAttribute('data-slot'), 10);
+                const h = HERO_ROSTER[state.customizingSlot];
+                document.getElementById('input-hero-name').value = h.name;
+                document.querySelectorAll('.squad-slot-btn').forEach(b => b.classList.remove('border-[#ffe600]', 'bg-[#00f0ff]/20'));
+                btn.classList.add('border-[#ffe600]', 'bg-[#00f0ff]/20');
+                state.activeHeroIdx = state.customizingSlot;
+                applyActiveHeroVisuals();
+            });
+        });
+
+        document.getElementById('input-hero-name').addEventListener('input', (e) => {
+            const val = (e.target.value || 'HERO').toUpperCase();
+            HERO_ROSTER[state.customizingSlot].name = val;
+            document.getElementById(`slot${state.customizingSlot}-name-preview`).textContent = val;
+            updateHUD();
+        });
+
+        document.querySelectorAll('.gender-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                HERO_ROSTER[state.customizingSlot].gender = btn.getAttribute('data-gender');
+                SoundFX.collect();
+            });
+        });
+
+        document.querySelectorAll('#hair-color-swatches button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                HERO_ROSTER[state.customizingSlot].hair = btn.getAttribute('data-hair');
+                applyActiveHeroVisuals();
+                SoundFX.collect();
+            });
+        });
+
+        document.querySelectorAll('#eye-color-swatches button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                HERO_ROSTER[state.customizingSlot].eye = btn.getAttribute('data-eye');
+                applyActiveHeroVisuals();
+                SoundFX.collect();
+            });
+        });
+
+        document.querySelectorAll('.voice-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const v = parseInt(btn.getAttribute('data-voice'), 10);
+                HERO_ROSTER[state.customizingSlot].voice = v;
+                const h = HERO_ROSTER[state.customizingSlot];
+                SoundFX.speakHeroLine(`${h.name} locked and loaded!`, h.voice, h.gender);
+            });
+        });
+
+        document.getElementById('btn-test-voice').addEventListener('click', () => {
+            const h = HERO_ROSTER[state.customizingSlot];
+            SoundFX.speakHeroLine(`Scrap Ninja ${h.name} ready for the World Tour!`, h.voice, h.gender);
+        });
+
+        document.getElementById('btn-launch-game').addEventListener('click', () => {
+            document.getElementById('customizer-modal').classList.add('hidden');
+            document.getElementById('hud-layer').classList.remove('hidden');
+            state.inGame = true;
+            applyActiveHeroVisuals();
+            SoundFX.fanfare();
+        });
+
+        document.getElementById('btn-open-customizer').addEventListener('click', () => {
+            state.inGame = false;
+            document.getElementById('customizer-modal').classList.remove('hidden');
+        });
+
+        // Modal Toggles
+        const bindModal = (openBtnId, closeBtnId, modalId) => {
+            document.getElementById(openBtnId).addEventListener('click', () => {
+                const m = document.getElementById(modalId);
+                m.classList.remove('hidden');
+                m.classList.add('flex');
+            });
+            document.getElementById(closeBtnId).addEventListener('click', () => {
+                const m = document.getElementById(modalId);
+                m.classList.add('hidden');
+                m.classList.remove('flex');
+            });
+        };
+        bindModal('btn-open-teleport', 'btn-close-teleport', 'teleport-modal');
+        bindModal('btn-open-gunbench', 'btn-close-gunbench', 'gunbench-modal');
+        bindModal('btn-open-bosses', 'btn-close-bosses', 'boss-modal');
+
+        document.querySelectorAll('.city-tp-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.getAttribute('data-city'), 10);
+                document.getElementById('teleport-modal').classList.add('hidden');
+                document.getElementById('teleport-modal').classList.remove('flex');
+                if (idx === 5) {
+                    startBossDuel('baron');
+                } else {
+                    warpToCity(idx);
+                }
+            });
+        });
+
+        document.querySelectorAll('.start-duel-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const bossKey = btn.getAttribute('data-boss');
+                document.getElementById('boss-modal').classList.add('hidden');
+                document.getElementById('boss-modal').classList.remove('flex');
+                startBossDuel(bossKey);
+            });
+        });
+
+        // Gun Bench Attachments & Armor Unlocks
+        document.querySelectorAll('.gun-mod-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mod = btn.getAttribute('data-mod');
+                state.mods[mod] = !state.mods[mod];
+                document.getElementById(`mod-status-${mod}`).textContent = state.mods[mod] ? '✅ EQUIPPED' : 'EQUIP';
+                if (mod === 'thermal') {
+                    document.getElementById('thermal-overlay').classList.toggle('hidden', !state.mods.thermal);
+                }
+                applyActiveHeroVisuals();
+                SoundFX.reload();
+            });
+        });
+
+        document.querySelectorAll('.armor-select-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.armorTier = parseInt(btn.getAttribute('data-armor'), 10);
+                applyActiveHeroVisuals();
+                SoundFX.fanfare();
+            });
+        });
+
+        document.getElementById('btn-upgrade-skills').addEventListener('click', () => {
+            state.skillLevel++;
+            document.getElementById('skill-lvl-label').textContent = state.skillLevel;
+            SoundFX.fanfare();
+            spawnComicPopup(playerGroup.position, `SQUAD LEVEL ${state.skillLevel}!`, '#00ff88', '#050505');
+            updateHUD();
+        });
+
+        // Top & Bottom Action Buttons
+        document.getElementById('btn-tag-hero').addEventListener('click', tagNextHero);
+        document.getElementById('btn-respawn-device').addEventListener('click', activateBloodMoonRespawn);
+        document.getElementById('btn-raid-mode').addEventListener('click', start100WaveRaid);
+        document.getElementById('btn-siege-mode').addEventListener('click', () => startBossDuel('baron'));
+
+        document.getElementById('btn-super-combo').addEventListener('click', triggerWorldTourSuper);
+        document.getElementById('btn-car-mode').addEventListener('click', () => {
+            if (!state.isDrivingCar) {
+                state.isDrivingCar = true;
+                SoundFX.gunshot(90, true);
+                spawnComicPopup(playerGroup.position, `DRIVING: ${CAR_MODES[state.carModeIdx].name}!`, '#ffe600', '#050505');
+            } else {
+                state.carModeIdx = (state.carModeIdx + 1) % CAR_MODES.length;
+                monsterWheelsGroup.visible = (state.carModeIdx === 0 || state.carModeIdx === 2);
+                monsterWheelsGroup.scale.setScalar(state.carModeIdx === 2 ? 1.45 : 0.85);
+                saucerRing.visible = (state.carModeIdx === 1 || state.carModeIdx === 3);
+                spawnComicPopup(playerGroup.position, `TRANSFORM: ${CAR_MODES[state.carModeIdx].name}!`, '#00f0ff', '#050505');
+            }
+            updateHUD();
+        });
+
+        document.querySelectorAll('.build-turret-btn').forEach(btn => {
+            btn.addEventListener('click', () => buildDefenseTurret(btn.getAttribute('data-turret')));
+        });
+
+        function triggerWorldTourSuper() {
+            SoundFX.fanfare();
+            SoundFX.gunshot(75, true);
+            damageTargetsInRadius(playerGroup.position, 36, 320, 'WORLD TOUR ARTILLERY!');
+            spawnComicPopup(playerGroup.position, '💥 CURE-WAVE SUPER STRIKE!', '#ffe600', '#050505');
+        }
+
+        // Keyboard Shortcuts
+        window.addEventListener('keydown', (e) => {
+            state.keys[e.code] = true;
+            if (!state.inGame) return;
+
+            if (e.code.startsWith('Digit')) {
+                const num = parseInt(e.code.replace('Digit', ''), 10);
+                if (num >= 1 && num <= 9) selectWeapon(num - 1);
+            }
+            if (e.code === 'KeyF') fireWeapon();
+            if (e.code === 'KeyR') reloadWeapon();
+            if (e.code === 'KeyT') tagNextHero();
+            if (e.code === 'KeyQ') triggerWorldTourSuper();
+            if (e.code === 'KeyG') {
+                SoundFX.bark();
+                damageTargetsInRadius(dogGroup.position, 15, 95, 'LINEBACKER BARK!');
+            }
+            if (e.code === 'KeyV') {
+                state.isDrivingCar = !state.isDrivingCar;
+                heroRig.visible = !state.isDrivingCar;
+                updateHUD();
+            }
+            if (e.code === 'KeyC') document.getElementById('btn-car-mode').click();
+            if (e.code === 'KeyM') document.getElementById('btn-open-teleport').click();
+            if (e.code === 'KeyU') document.getElementById('btn-open-gunbench').click();
+            if (e.code === 'KeyL') document.getElementById('btn-open-bosses').click();
+            if (e.code === 'KeyB') activateBloodMoonRespawn();
+            if (e.code === 'KeyN') buildDefenseTurret('bass');
+        });
+
+        window.addEventListener('keyup', (e) => { state.keys[e.code] = false; });
+
+        // Mouse Look & Automatic Realistic Gunfire
+        let isDragging = false;
+        let lastX = 0;
+        canvas.addEventListener('mousedown', (e) => {
+            if (!state.inGame) return;
+            isDragging = true;
+            state.isMouseDown = true;
+            lastX = e.clientX;
+            fireWeapon();
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging && state.inGame) {
+                const dx = e.clientX - lastX;
+                lastX = e.clientX;
+                state.camYaw -= dx * 0.0065;
+            }
+        });
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            state.isMouseDown = false;
+        });
+
+        document.getElementById('btn-action-fire').addEventListener('click', fireWeapon);
+        document.getElementById('btn-action-reload').addEventListener('click', reloadWeapon);
+        document.getElementById('btn-action-bark').addEventListener('click', () => {
+            SoundFX.bark();
+            damageTargetsInRadius(dogGroup.position, 15, 95, 'LINEBACKER BARK!');
+        });
+        document.getElementById('btn-action-jump').addEventListener('pointerdown', () => { state.keys['Space'] = true; });
+        document.getElementById('btn-action-jump').addEventListener('pointerup', () => { state.keys['Space'] = false; });
+        document.getElementById('btn-action-sprint').addEventListener('pointerdown', () => { state.keys['ShiftLeft'] = true; });
+        document.getElementById('btn-action-sprint').addEventListener('pointerup', () => { state.keys['ShiftLeft'] = false; });
+
+        document.querySelectorAll('.touch-btn').forEach(btn => {
+            const k = btn.getAttribute('data-key');
+            btn.addEventListener('pointerdown', (e) => { e.preventDefault(); state.keys[k] = true; });
+            btn.addEventListener('pointerup', (e) => { e.preventDefault(); state.keys[k] = false; });
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // =========================================================================
+        // 11. MAIN 60FPS GAME, BALLISTICS, TURRET & SQUAD AI LOOP
+        // =========================================================================
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.1);
+            const elapsed = clock.getElapsedTime();
+
+            // Customizer 3D Turntable Preview
+            if (!state.inGame) {
+                heroRig.rotation.y = elapsed * 0.95;
+                camera.position.set(playerGroup.position.x + 3.2, playerGroup.position.y + 3.1, playerGroup.position.z + 5.8);
+                camera.lookAt(playerGroup.position.x, playerGroup.position.y + 2.3, playerGroup.position.z);
+                renderer.render(scene, camera);
+                return;
+            }
+            heroRig.rotation.y = 0;
+
+            if (state.fireCooldown > 0) state.fireCooldown -= dt;
+            if (state.isMouseDown) fireWeapon();
+
+            // Swinging Wrecking Ball hazard on Caribbean Island
+            if (scene.userData.wreckingBall) {
+                scene.userData.wreckingBall.position.x = -250 + Math.sin(elapsed * 2.5) * 14;
+            }
+
+            // Movement & 4-in-1 Vehicle Physics
+            let moveZ = 0, moveX = 0;
+            if (state.keys['KeyW'] || state.keys['ArrowUp']) moveZ = 1;
+            if (state.keys['KeyS'] || state.keys['ArrowDown']) moveZ = -1;
+            if (state.keys['KeyA'] || state.keys['ArrowLeft']) moveX = 1;
+            if (state.keys['KeyD'] || state.keys['ArrowRight']) moveX = -1;
+
+            const isSprint = state.keys['ShiftLeft'] || state.keys['ShiftRight'];
+            let speed = state.isDrivingCar ? CAR_MODES[state.carModeIdx].speed : (isSprint ? 28 : 18);
+            const forward = new THREE.Vector3(-Math.sin(state.camYaw), 0, -Math.cos(state.camYaw));
+            const right = new THREE.Vector3(-forward.z, 0, forward.x);
+
+            const moveVec = new THREE.Vector3().addScaledVector(forward, moveZ).addScaledVector(right, -moveX);
+            if (moveVec.lengthSq() > 0.01) {
+                moveVec.normalize();
+                playerGroup.position.addScaledVector(moveVec, speed * dt);
+                playerGroup.rotation.y = Math.atan2(moveVec.x, moveVec.z);
+                heroRig.userData.legL.rotation.x = Math.sin(elapsed * 15) * 0.65;
+                heroRig.userData.legR.rotation.x = -Math.sin(elapsed * 15) * 0.65;
+            }
+
+            // Twin-Turbo Hover-Pack / Supersonic UFO Flight
+            if (state.keys['Space']) {
+                state.velY = 14;
+                state.isGrounded = false;
+            }
+            state.velY -= 26 * dt;
+            playerGroup.position.y += state.velY * dt;
+            if (playerGroup.position.y <= 0) {
+                playerGroup.position.y = 0;
+                state.velY = 0;
+                state.isGrounded = true;
+            }
+
+            // Sync 4-in-1 Transformer Car & Roof/Window Squad Gunners!
+            if (state.isDrivingCar) {
+                vehicleGroup.position.set(playerGroup.position.x, playerGroup.position.y + 0.9, playerGroup.position.z);
+                vehicleGroup.rotation.y = playerGroup.rotation.y;
+                if (moveVec.lengthSq() > 0.01) {
+                    damageTargetsInRadius(playerGroup.position, 6.5, 45, 'MONSTER CRUSH!');
+                }
+            }
+
+            // Over-the-Shoulder Camera with Realistic Gun Recoil Kick
+            state.recoilKick = Math.max(0, state.recoilKick - dt * 0.25);
+            const camBack = state.isDrivingCar ? 13.5 : 7.0;
+            const camHeight = state.isDrivingCar ? 4.8 : 3.5;
+            const shoulder = state.isDrivingCar ? 0 : 1.15;
+
+            const targetCam = new THREE.Vector3(
+                playerGroup.position.x + Math.sin(state.camYaw) * camBack + Math.cos(state.camYaw) * shoulder,
+                playerGroup.position.y + camHeight,
+                playerGroup.position.z + Math.cos(state.camYaw) * camBack - Math.sin(state.camYaw) * shoulder
+            );
+            camera.position.lerp(targetCam, 0.18);
+            camera.lookAt(
+                playerGroup.position.x - Math.sin(state.camYaw) * 8,
+                playerGroup.position.y + 2.3 + state.recoilKick * 8,
+                playerGroup.position.z - Math.cos(state.camYaw) * 8
+            );
+
+            // Update AI Squadmates & Pitbull Sidekick
+            dogGroup.position.lerp(new THREE.Vector3(playerGroup.position.x - 2.6, playerGroup.position.y, playerGroup.position.z + 1.5), 6 * dt);
+            squadMates.forEach((sm, idx) => {
+                if (state.isDrivingCar) {
+                    // Mount roof & window turrets!
+                    sm.group.position.set(vehicleGroup.position.x + (idx === 0 ? -1.4 : 1.4), vehicleGroup.position.y + 1.6, vehicleGroup.position.z);
+                } else {
+                    const offset = new THREE.Vector3(idx === 0 ? -3.5 : 3.5, 0, 2.5);
+                    sm.group.position.lerp(playerGroup.position.clone().add(offset), 4.5 * dt);
+                }
+                sm.shootTimer -= dt;
+                if (sm.shootTimer <= 0 && enemies.length > 0) {
+                    sm.shootTimer = 0.9;
+                    const target = enemies[0];
+                    if (target && sm.group.position.distanceTo(target.mesh.position) < 35) {
+                        const dir = new THREE.Vector3().subVectors(target.mesh.position, sm.group.position).normalize();
+                        const b = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 1.6), new THREE.MeshBasicMaterial({ color: 0x00f0ff }));
+                        b.position.copy(sm.group.position).add(new THREE.Vector3(0, 2, 0));
+                        scene.add(b);
+                        bullets.push({ mesh: b, dir, speed: 85, dmg: 22, life: 0.6 });
+                    }
+                }
+            });
+
+            // Update Placed Raid Defense Turrets
+            builtTurrets.forEach(t => {
+                t.cooldown -= dt;
+                if (t.cooldown <= 0 && enemies.length > 0) {
+                    t.cooldown = 0.75;
+                    const target = enemies[0];
+                    if (target && t.mesh.position.distanceTo(target.mesh.position) < 40) {
+                        const dir = new THREE.Vector3().subVectors(target.mesh.position, t.mesh.position).normalize();
+                        const b = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), new THREE.MeshBasicMaterial({ color: t.color }));
+                        b.position.copy(t.mesh.position).add(new THREE.Vector3(0, 1.5, 0));
+                        scene.add(b);
+                        bullets.push({ mesh: b, dir, speed: 75, dmg: 35, life: 0.7 });
+                    }
+                }
+            });
+
+            // Update Bullets / Realistic Tracers
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.life -= dt;
+                b.mesh.position.addScaledVector(b.dir, b.speed * dt);
+                let hit = false;
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const e = enemies[j];
+                    if (b.mesh.position.distanceTo(e.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0))) < 2.2) {
+                        e.hp -= b.dmg;
+                        hit = true;
+                        spawnComicPopup(e.mesh.position, `-${Math.round(b.dmg)}`, '#ffe600', '#050505');
+                        if (e.hp <= 0) handleEnemyDefeated(e, j);
+                        break;
+                    }
+                }
+                if (hit || b.life <= 0) {
+                    scene.remove(b.mesh);
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Update Ejected Spinning Brass Shell Casings
+            for (let i = brassCasings.length - 1; i >= 0; i--) {
+                const c = brassCasings[i];
+                c.life -= dt;
+                c.vel.y -= 24 * dt;
+                c.mesh.position.addScaledVector(c.vel, dt);
+                c.mesh.rotation.x += 12 * dt;
+                c.mesh.rotation.z += 9 * dt;
+                if (c.mesh.position.y < 0.1) {
+                    c.mesh.position.y = 0.1;
+                    c.vel.y *= -0.45;
+                }
+                if (c.life <= 0) {
+                    scene.remove(c.mesh);
+                    brassCasings.splice(i, 1);
+                }
+            }
+
+            // Update Collectible Pickups (Tank & Player Magnet!)
+            worldCollectibles.forEach(item => {
+                if (item.taken) return;
+                item.mesh.rotation.y += 2.5 * dt;
+                if (item.mesh.position.distanceTo(playerGroup.position) < 5.5 || item.mesh.position.distanceTo(dogGroup.position) < 5.5) {
+                    item.taken = true;
+                    scene.remove(item.mesh);
+                    state.collectibles[item.type]++;
+                    SoundFX.collect();
+                    spawnComicPopup(playerGroup.position, `+1 ${item.label}!`, '#00ff88', '#050505');
+                    updateHUD();
+                }
+            });
+
+            // Update Enemies & Bosses
+            enemies.forEach(e => {
+                const dir = new THREE.Vector3().subVectors(playerGroup.position, e.mesh.position);
+                dir.y = 0;
+                const d = dir.length();
+                if (d > 1.8 && d < 65) {
+                    dir.normalize();
+                    e.mesh.position.addScaledVector(dir, e.speed * dt);
+                    e.mesh.lookAt(playerGroup.position.x, 0, playerGroup.position.z);
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            applyActiveHeroVisuals();
+            animate();
+        };
+    })();
+    </script>
+</body>
+</html>
